@@ -1,7 +1,7 @@
 import pygame
 import sys
 from maze.generators import DFSMazeGenerator
-from maze.solvers import AStarMazeSolver, BFSMazeSolver, RandomMazeSolver
+from maze.solvers import AStarMazeSolver, BFSMazeSolver, RandomMazeSolver, DijkstraMazeSolver, DFSMazeSolver
 
 # Initialize Pygame
 pygame.init()
@@ -36,7 +36,16 @@ class AnimationTheme:
             },
             "fire": {
                 "current_cell": (255, 69, 0),     # Red-Orange
-                "trail": (255, 140, 0)            # Dark Orange
+                "trail": (255, 140, 0),           # Dark Orange
+                "flame_colors": [
+                    (255, 69, 0),   # Red-Orange
+                    (255, 140, 0),  # Dark Orange
+                    (255, 165, 0),  # Orange
+                    (255, 215, 0),  # Gold
+                    (255, 99, 71),  # Tomato Red
+                    (255, 50, 0),   # Bright Red
+                    (255, 180, 0)   # Light Orange
+                ]
             },
             "ocean": {
                 "current_cell": (0, 191, 255),    # Deep Sky Blue
@@ -60,6 +69,11 @@ class AnimationTheme:
             }
         }
         self.set_theme(theme_name)
+        self.flame_timer = 0
+        self.FLAME_CHANGE_INTERVAL = 50  # Reduced from 100ms to 50ms for faster flickering
+        self.cell_colors = {}  # Dictionary to store colors for each cell
+        import random
+        self.random = random
     
     def set_theme(self, theme_name):
         """Set the current animation theme."""
@@ -68,6 +82,8 @@ class AnimationTheme:
             self.current_cell = theme["current_cell"]
             self.trail = theme["trail"]
             self.current_theme = theme_name
+            self.flame_colors = theme.get("flame_colors", None)
+            self.cell_colors = {}  # Reset cell colors when theme changes
     
     def get_random_rainbow_color(self):
         """Generate a random rainbow color."""
@@ -84,10 +100,27 @@ class AnimationTheme:
         return random.choice(rainbow_colors)
     
     def get_trail_color(self):
-        """Get the trail color, with special handling for rainbow theme."""
+        """Get the trail color, with special handling for rainbow and fire themes."""
         if self.current_theme == "rainbow":
             return self.get_random_rainbow_color()
+        elif self.current_theme == "fire":
+            current_time = pygame.time.get_ticks()
+            if current_time - self.flame_timer > self.FLAME_CHANGE_INTERVAL:
+                self.flame_timer = current_time
+                # Update colors for all cells
+                for cell in self.cell_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color for more natural flickering
+                        self.cell_colors[cell] = self.random.choice(self.flame_colors)
+            return self.trail
         return self.trail
+    
+    def get_cell_color(self, cell):
+        """Get the color for a specific cell in fire theme."""
+        if self.current_theme == "fire":
+            if cell not in self.cell_colors:
+                self.cell_colors[cell] = self.random.choice(self.flame_colors)
+            return self.cell_colors[cell]
+        return self.get_trail_color()
 
 class Theme:
     """Class to define the application's color theme."""
@@ -363,7 +396,7 @@ class MazeComponent:
             y,
             button_width,
             button_height,
-            ["A*", "BFS", "Random"],
+            ["A*", "BFS", "DFS", "Dijkstra", "Random"],  # Added DFS and Dijkstra
             button_style
         )
         
@@ -561,7 +594,7 @@ class MazeComponent:
         # Draw explored cells
         for x, y in self.explored_cells:
             if (x, y) != self.start_pos and (x, y) != self.end_pos:
-                pygame.draw.rect(screen, self.animation_theme.get_trail_color(),
+                pygame.draw.rect(screen, self.animation_theme.get_cell_color((x, y)),
                                (x * self.cell_size + maze_x,
                                 y * self.cell_size + maze_y,
                                 self.cell_size, self.cell_size))
@@ -644,6 +677,8 @@ class MazeGame:
         self.solvers = {
             "A*": AStarMazeSolver,
             "BFS": BFSMazeSolver,
+            "DFS": DFSMazeSolver,  # Added DFS
+            "Dijkstra": DijkstraMazeSolver,  # Added Dijkstra
             "Random": RandomMazeSolver
         }
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
@@ -678,7 +713,7 @@ class MazeGame:
             slider_width,
             slider_height,
             5,  # min width
-            50,  # max width
+            100,  # max width (increased from 50)
             MAZE_WIDTH,  # initial width
             "Width",
             self.button_style
@@ -872,18 +907,36 @@ class MazeGame:
     def randomize_all_mazes(self):
         """Randomize algorithm and theme for all maze components and reset any running mazes."""
         import random
+        
+        # Get lists of available algorithms and themes
+        available_algorithms = list(self.solvers.keys())
+        available_themes = self.animation_themes.copy()
+        
+        # Shuffle the lists to randomize the order
+        random.shuffle(available_algorithms)
+        random.shuffle(available_themes)
+        
+        # Reset any running mazes
         for component in self.maze_components:
-            # Reset any running mazes
             component.reset_solving()
             
-            # Randomly select new algorithm and theme
-            random_algorithm = random.choice(list(self.solvers.keys()))
-            random_theme = random.choice(self.animation_themes)
+            # Try to get a unique algorithm and theme
+            if available_algorithms:
+                algorithm = available_algorithms.pop()
+            else:
+                # If we ran out of unique algorithms, pick a random one
+                algorithm = random.choice(list(self.solvers.keys()))
+                
+            if available_themes:
+                theme = available_themes.pop()
+            else:
+                # If we ran out of unique themes, pick a random one
+                theme = random.choice(self.animation_themes)
             
             # Update the component
-            component.algorithm_dropdown.selected = random_algorithm
-            component.animation_theme_dropdown.selected = random_theme
-            component.animation_theme.set_theme(random_theme.lower())
+            component.algorithm_dropdown.selected = algorithm
+            component.animation_theme_dropdown.selected = theme
+            component.animation_theme.set_theme(theme.lower())
     
     def update_solving(self):
         """Update solving animation for all components and check for completed mazes."""
