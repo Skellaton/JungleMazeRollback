@@ -527,15 +527,8 @@ class MazeGame:
             "Random": RandomMazeSolver
         }
         
-        # Create maze component
-        self.maze_component = MazeComponent(
-            MAZE_OFFSET_X,
-            MAZE_OFFSET_Y,
-            MAZE_WIDTH,
-            MAZE_HEIGHT,
-            CELL_SIZE,
-            self.button_style
-        )
+        # Initialize maze components list
+        self.maze_components = []
         
         # Create buttons
         button_width = 180
@@ -545,27 +538,37 @@ class MazeGame:
         buttons_start_x = 250
         
         self.generate_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2,
             button_y,
             button_width,
             button_height,
-            "Generate",
-            self.generate_maze,
+            "Generate All",
+            self.generate_all_mazes,
             self.button_style
         )
         
         self.solve_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2 + button_width + button_spacing,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + button_width + button_spacing,
             button_y,
             button_width,
             button_height,
-            "Solve Maze",
-            self.solve_maze,
+            "Solve All",
+            self.solve_all_mazes,
+            self.button_style
+        )
+
+        self.add_maze_button = Button(
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 2,
+            button_y,
+            button_width,
+            button_height,
+            "Add Maze",
+            self.add_maze,
             self.button_style
         )
         
         self.app_theme_dropdown = Dropdown(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2 + (button_width + button_spacing) * 2,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 3,
             button_y,
             button_width,
             button_height,
@@ -573,24 +576,34 @@ class MazeGame:
             self.button_style
         )
         
-        self.buttons = [self.generate_button, self.solve_button]
+        self.buttons = [self.generate_button, self.solve_button, self.add_maze_button]
+        
+        # Add initial maze
+        self.add_maze()
     
-    def generate_maze(self):
-        if hasattr(self, 'maze_component'):
-            self.maze_component.generate_maze()
-        else:
-            self.maze_component = MazeComponent(
-                MAZE_OFFSET_X,
-                MAZE_OFFSET_Y,
-                MAZE_WIDTH,
-                MAZE_HEIGHT,
-                CELL_SIZE,
-                self.button_style
-            )
+    def add_maze(self):
+        """Add a new maze component."""
+        # Calculate position for new maze
+        offset = len(self.maze_components) * 50  # Offset each new maze by 50 pixels
+        new_maze = MazeComponent(
+            MAZE_OFFSET_X + offset,
+            MAZE_OFFSET_Y + offset,
+            MAZE_WIDTH,
+            MAZE_HEIGHT,
+            CELL_SIZE,
+            self.button_style
+        )
+        self.maze_components.append(new_maze)
     
-    def solve_maze(self):
-        if hasattr(self, 'maze_component'):
-            self.maze_component.start_solving(self.solvers[self.maze_component.algorithm_dropdown.selected])
+    def generate_all_mazes(self):
+        """Generate all mazes."""
+        for maze in self.maze_components:
+            maze.generate_maze()
+    
+    def solve_all_mazes(self):
+        """Start solving all mazes."""
+        for maze in self.maze_components:
+            maze.start_solving(self.solvers[maze.algorithm_dropdown.selected])
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
@@ -600,9 +613,10 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
-        if hasattr(self, 'maze_component'):
-            self.maze_component.algorithm_dropdown.style = self.button_style
-            self.maze_component.animation_theme_dropdown.style = self.button_style
+        for maze in self.maze_components:
+            maze.algorithm_dropdown.style = self.button_style
+            maze.animation_theme_dropdown.style = self.button_style
+            maze.button_style = self.button_style
         self.current_logo = self.logos[theme_name]
     
     def run(self):
@@ -622,12 +636,12 @@ class MazeGame:
                     self.change_app_theme(selected_theme)
                 
                 # Handle maze component events
-                if hasattr(self, 'maze_component'):
-                    algorithm, animation_theme, close = self.maze_component.handle_event(event)
+                for i, maze in enumerate(self.maze_components[:]):  # Use slice copy to allow removal during iteration
+                    algorithm, animation_theme, close = maze.handle_event(event)
                     if animation_theme:
                         self.animation_theme.set_theme(animation_theme.lower())
                     if close == "close":
-                        delattr(self, 'maze_component')
+                        self.maze_components.remove(maze)
                 
                 # Handle button events
                 for button in self.buttons:
@@ -636,8 +650,9 @@ class MazeGame:
                         action()
             
             # Update solving animation
-            if hasattr(self, 'maze_component') and self.maze_component.solving:
-                self.maze_component.update_solving()
+            for maze in self.maze_components:
+                if maze.solving:
+                    maze.update_solving()
             
             self.draw()
             self.clock.tick(FPS)
@@ -659,9 +674,9 @@ class MazeGame:
         # Draw app theme dropdown
         self.app_theme_dropdown.draw(self.screen)
         
-        # Draw maze component if it exists
-        if hasattr(self, 'maze_component'):
-            self.maze_component.draw(self.screen, self.app_theme, self.animation_theme)
+        # Draw maze components
+        for maze in self.maze_components:
+            maze.draw(self.screen, self.app_theme, self.animation_theme)
         
         pygame.display.flip()
 
