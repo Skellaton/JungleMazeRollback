@@ -259,8 +259,13 @@ class Slider:
         pygame.draw.rect(screen, self.style.background_color, self.rect)
         pygame.draw.rect(screen, self.style.border_color, self.rect, self.style.border_width)
         
+        # Draw filled portion of track
+        filled_width = (self.value - self.min_value) / (self.max_value - self.min_value) * self.rect.width
+        filled_rect = pygame.Rect(self.rect.x, self.rect.y, filled_width, self.rect.height)
+        pygame.draw.rect(screen, self.style.hover_color, filled_rect)
+        
         # Draw slider handle
-        handle_x = self.rect.x + (self.value - self.min_value) / (self.max_value - self.min_value) * self.rect.width
+        handle_x = self.rect.x + filled_width
         handle_rect = pygame.Rect(handle_x - 5, self.rect.y - 5, 10, self.rect.height + 10)
         pygame.draw.rect(screen, self.style.hover_color if self.dragging else self.style.background_color, handle_rect)
         pygame.draw.rect(screen, self.style.border_color, handle_rect, self.style.border_width)
@@ -297,6 +302,10 @@ class Slider:
         relative_x = max(0, min(mouse_x - self.rect.x, self.rect.width))
         self.value = int(self.min_value + (relative_x / self.rect.width) * (self.max_value - self.min_value))
         return self.value
+    
+    def update_style(self, new_style):
+        """Update the slider's style."""
+        self.style = new_style
 
 class MazeComponent:
     def __init__(self, x, y, maze_width, maze_height, cell_size, button_style, maze_generator):
@@ -375,13 +384,17 @@ class MazeComponent:
         self.explored_cells = set()
         self.solver = None
         self.solver_generator = None
+        self.start_pos = None
+        self.end_pos = None
         
         # Add z-index tracking
         self.dropdowns_open = False
     
-    def set_maze(self, maze):
+    def set_maze(self, maze, start_pos, end_pos):
         """Set the maze for this component."""
         self.maze = maze
+        self.start_pos = start_pos
+        self.end_pos = end_pos
         self.solution = None
         self.solving = False
         self.current_cell = None
@@ -389,18 +402,22 @@ class MazeComponent:
         self.elapsed_time = 0
     
     def start_solving(self, solver_class):
-        if self.maze is not None and not self.solving:
+        if self.maze is not None and not self.solving and self.start_pos is not None and self.end_pos is not None:
             self.solving = True
             self.solution = None
             self.current_cell = None
             self.explored_cells = set()
             self.start_time = pygame.time.get_ticks()
-            start, end = self.maze_generator.get_start_end_points()
+            self.elapsed_time = 0
             self.solver = solver_class(self.maze)
-            self.solver_generator = self.solver.solve_step_by_step(start, end)
+            self.solver_generator = self.solver.solve_step_by_step(self.start_pos, self.end_pos)
     
     def update_solving(self):
         if self.solving:
+            # Update elapsed time
+            current_time = pygame.time.get_ticks()
+            self.elapsed_time = (current_time - self.start_time) / 1000  # Convert to seconds
+            
             try:
                 result = next(self.solver_generator)
                 if isinstance(result, tuple):
@@ -409,10 +426,8 @@ class MazeComponent:
                 elif isinstance(result, list):
                     self.solution = result
                     self.solving = False
-                    self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
             except StopIteration:
                 self.solving = False
-                self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
     
     def reset_solving(self):
         """Reset the solving animation state."""
@@ -529,20 +544,23 @@ class MazeComponent:
                 else:  # Path
                     pygame.draw.rect(screen, app_theme.accent, rect)
         
-        # Draw start and end points
-        start, end = self.maze_generator.get_start_end_points()
-        pygame.draw.rect(screen, app_theme.start_color,
-                       (start[0] * self.cell_size + maze_x,
-                        start[1] * self.cell_size + maze_y,
-                        self.cell_size, self.cell_size))
-        pygame.draw.rect(screen, app_theme.end_color,
-                       (end[0] * self.cell_size + maze_x,
-                        end[1] * self.cell_size + maze_y,
-                        self.cell_size, self.cell_size))
+        # Draw start and end points if they exist
+        if self.start_pos is not None and self.end_pos is not None:
+            start_x, start_y = self.start_pos
+            end_x, end_y = self.end_pos
+            
+            pygame.draw.rect(screen, app_theme.start_color,
+                           (start_x * self.cell_size + maze_x,
+                            start_y * self.cell_size + maze_y,
+                            self.cell_size, self.cell_size))
+            pygame.draw.rect(screen, app_theme.end_color,
+                           (end_x * self.cell_size + maze_x,
+                            end_y * self.cell_size + maze_y,
+                            self.cell_size, self.cell_size))
         
         # Draw explored cells
         for x, y in self.explored_cells:
-            if (x, y) != start and (x, y) != end:
+            if (x, y) != self.start_pos and (x, y) != self.end_pos:
                 pygame.draw.rect(screen, self.animation_theme.get_trail_color(),
                                (x * self.cell_size + maze_x,
                                 y * self.cell_size + maze_y,
@@ -551,7 +569,7 @@ class MazeComponent:
         # Draw current cell
         if self.current_cell:
             x, y = self.current_cell
-            if (x, y) != start and (x, y) != end:
+            if (x, y) != self.start_pos and (x, y) != self.end_pos:
                 pygame.draw.rect(screen, self.animation_theme.current_cell,
                                (x * self.cell_size + maze_x,
                                 y * self.cell_size + maze_y,
@@ -560,7 +578,7 @@ class MazeComponent:
         # Draw solution path
         if self.solution:
             for x, y in self.solution:
-                if (x, y) != start and (x, y) != end:
+                if (x, y) != self.start_pos and (x, y) != self.end_pos:
                     pygame.draw.rect(screen, app_theme.solution_color,
                                    (x * self.cell_size + maze_x,
                                     y * self.cell_size + maze_y,
@@ -704,10 +722,15 @@ class MazeGame:
     
     def generate_maze(self):
         """Generate a new maze that will be shared across all components."""
+        # Generate the maze
         self.shared_maze = self.maze_generator.generate()
-        # Update all components with the new maze
+        
+        # Get start and end positions
+        self.start_pos, self.end_pos = self.maze_generator.get_start_end_points()
+        
+        # Update all components with the new maze and positions
         for component in self.maze_components:
-            component.set_maze(self.shared_maze)
+            component.set_maze(self.shared_maze, self.start_pos, self.end_pos)
     
     def create_new_maze(self):
         """Create a new maze component with random algorithm and theme."""
@@ -739,7 +762,7 @@ class MazeGame:
         
         # If there's a shared maze, set it for the new component
         if self.shared_maze is not None:
-            new_component.set_maze(self.shared_maze)
+            new_component.set_maze(self.shared_maze, self.start_pos, self.end_pos)
         
         # Add to list of components
         self.maze_components.append(new_component)
@@ -764,6 +787,10 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
+        
+        # Update sliders
+        self.width_slider.update_style(self.button_style)
+        self.height_slider.update_style(self.button_style)
         
         # Update all components
         for component in self.maze_components:
