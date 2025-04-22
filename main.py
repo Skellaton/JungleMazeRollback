@@ -222,6 +222,13 @@ class Theme:
                 "accent": (160, 180, 127),     # #a0b47f
                 "button_hover": (170, 190, 137)
             },
+            "dark jungle": {
+                "background": (29, 68, 42),    # Dark green background
+                "text": (29, 68, 42),          # Same as Jungle theme
+                "border": (29, 68, 42),        # Same as Jungle theme
+                "accent": (160, 180, 127),     # Same as Jungle theme
+                "button_hover": (170, 190, 137)  # Same as Jungle theme
+            },
             "dark": {
                 "background": (0, 0, 0),        # Black
                 "text": (255, 255, 255),       # White
@@ -750,6 +757,7 @@ class MazeGame:
         # Load and scale logos
         self.logos = {
             "jungle": pygame.transform.scale(pygame.image.load("assets/logo_jungle.png"), (200, 200)),
+            "dark jungle": pygame.transform.scale(pygame.image.load("assets/logo_jungle.png"), (200, 200)),
             "dark": pygame.transform.scale(pygame.image.load("assets/logo_dark.png"), (200, 200))
         }
         self.current_logo = None
@@ -888,7 +896,7 @@ class MazeGame:
             button_y,
             button_width,
             button_height,
-            ["Jungle", "Dark"],
+            ["Jungle", "Dark Jungle", "Dark"],
             self.button_style
         )
         
