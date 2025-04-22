@@ -242,6 +242,184 @@ class Dropdown:
                             return self.selected
         return None
 
+class MazeComponent:
+    def __init__(self, x, y, maze_width, maze_height, cell_size, button_style):
+        self.x = x
+        self.y = y
+        self.dragging = False
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
+        
+        # Maze properties
+        self.maze_width = maze_width
+        self.maze_height = maze_height
+        self.cell_size = cell_size
+        
+        # Component dimensions
+        button_width = 180
+        button_height = 40
+        button_spacing = 10
+        self.width = max(maze_width * cell_size, button_width * 2 + button_spacing)
+        self.height = maze_height * cell_size + button_height * 2 + button_spacing * 2
+        
+        # Create dropdowns
+        self.algorithm_dropdown = Dropdown(
+            x,
+            y,
+            button_width,
+            button_height,
+            ["A*", "BFS", "Random"],
+            button_style
+        )
+        
+        self.animation_theme_dropdown = Dropdown(
+            x + button_width + button_spacing,
+            y,
+            button_width,
+            button_height,
+            ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"],
+            button_style
+        )
+        
+        # Initialize maze state
+        self.maze_generator = DFSMazeGenerator(maze_width, maze_height)
+        self.maze = None
+        self.solution = None
+        self.solving = False
+        self.current_cell = None
+        self.explored_cells = set()
+        self.solver = None
+        self.solver_generator = None
+        
+        # Generate initial maze
+        self.generate_maze()
+    
+    def generate_maze(self):
+        self.maze = self.maze_generator.generate()
+        self.solution = None
+        self.solving = False
+        self.current_cell = None
+        self.explored_cells = set()
+    
+    def start_solving(self, solver_class):
+        if self.maze is not None and not self.solving:
+            self.solving = True
+            self.solution = None
+            self.current_cell = None
+            self.explored_cells = set()
+            start, end = self.maze_generator.get_start_end_points()
+            self.solver = solver_class(self.maze)
+            self.solver_generator = self.solver.solve_step_by_step(start, end)
+    
+    def update_solving(self):
+        if self.solving:
+            try:
+                result = next(self.solver_generator)
+                if isinstance(result, tuple):
+                    self.current_cell = result
+                    self.explored_cells.add(result)
+                elif isinstance(result, list):
+                    self.solution = result
+                    self.solving = False
+            except StopIteration:
+                self.solving = False
+    
+    def handle_event(self, event):
+        # Handle dropdowns
+        algorithm = self.algorithm_dropdown.handle_event(event)
+        animation_theme = self.animation_theme_dropdown.handle_event(event)
+        
+        # Handle dragging
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                mouse_x, mouse_y = event.pos
+                if self.x <= mouse_x <= self.x + self.width and self.y <= mouse_y <= self.y + self.height:
+                    self.dragging = True
+                    self.drag_offset_x = mouse_x - self.x
+                    self.drag_offset_y = mouse_y - self.y
+        
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:  # Left click
+                self.dragging = False
+        
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                mouse_x, mouse_y = event.pos
+                self.x = mouse_x - self.drag_offset_x
+                self.y = mouse_y - self.drag_offset_y
+                # Update dropdown positions
+                self.algorithm_dropdown.rect.x = self.x
+                self.algorithm_dropdown.rect.y = self.y
+                self.animation_theme_dropdown.rect.x = self.x + 180 + 10
+                self.animation_theme_dropdown.rect.y = self.y
+        
+        return algorithm, animation_theme
+    
+    def draw(self, screen, app_theme, animation_theme):
+        # Draw background for the entire component
+        component_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(screen, app_theme.accent, component_rect)
+        pygame.draw.rect(screen, app_theme.border, component_rect, 2)
+        
+        # Draw dropdowns
+        self.algorithm_dropdown.draw(screen)
+        self.animation_theme_dropdown.draw(screen)
+        
+        # Calculate maze position (centered horizontally in the component)
+        maze_x = self.x + (self.width - self.maze_width * self.cell_size) // 2
+        maze_y = self.y + 50  # Below dropdowns
+        
+        # Draw maze
+        for y in range(self.maze.shape[0]):
+            for x in range(self.maze.shape[1]):
+                rect = pygame.Rect(
+                    x * self.cell_size + maze_x,
+                    y * self.cell_size + maze_y,
+                    self.cell_size,
+                    self.cell_size
+                )
+                if self.maze[y, x] == 1:  # Wall
+                    pygame.draw.rect(screen, app_theme.border, rect)
+                else:  # Path
+                    pygame.draw.rect(screen, app_theme.accent, rect)
+        
+        # Draw start and end points
+        start, end = self.maze_generator.get_start_end_points()
+        pygame.draw.rect(screen, app_theme.start_color,
+                       (start[0] * self.cell_size + maze_x,
+                        start[1] * self.cell_size + maze_y,
+                        self.cell_size, self.cell_size))
+        pygame.draw.rect(screen, app_theme.end_color,
+                       (end[0] * self.cell_size + maze_x,
+                        end[1] * self.cell_size + maze_y,
+                        self.cell_size, self.cell_size))
+        
+        # Draw explored cells
+        for x, y in self.explored_cells:
+            if (x, y) != start and (x, y) != end:
+                pygame.draw.rect(screen, animation_theme.get_trail_color(),
+                               (x * self.cell_size + maze_x,
+                                y * self.cell_size + maze_y,
+                                self.cell_size, self.cell_size))
+        
+        # Draw current cell
+        if self.current_cell:
+            x, y = self.current_cell
+            if (x, y) != start and (x, y) != end:
+                pygame.draw.rect(screen, animation_theme.current_cell,
+                               (x * self.cell_size + maze_x,
+                                y * self.cell_size + maze_y,
+                                self.cell_size, self.cell_size))
+        
+        # Draw solution path
+        if self.solution:
+            for x, y in self.solution:
+                if (x, y) != start and (x, y) != end:
+                    pygame.draw.rect(screen, app_theme.solution_color,
+                                   (x * self.cell_size + maze_x,
+                                    y * self.cell_size + maze_y,
+                                    self.cell_size, self.cell_size))
+
 class MazeGame:
     def __init__(self):
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -269,50 +447,46 @@ class MazeGame:
             "BFS": BFSMazeSolver,
             "Random": RandomMazeSolver
         }
-        self.current_solver = "A*"
         
-        # Initialize maze generators and solvers for all three mazes
-        self.maze_generators = [DFSMazeGenerator(MAZE_WIDTH, MAZE_HEIGHT)]
-        self.mazes = [None]
-        self.solutions = [None]
-        self.solving = [False]
-        self.current_cells = [None]
-        self.explored_cells = [set()]
-        self.generate_all_mazes()
+        # Create maze component
+        self.maze_component = MazeComponent(
+            MAZE_OFFSET_X,
+            MAZE_OFFSET_Y,
+            MAZE_WIDTH,
+            MAZE_HEIGHT,
+            CELL_SIZE,
+            self.button_style
+        )
         
-        # Create buttons and dropdowns
+        # Create buttons
         button_width = 180
         button_height = 40
         button_spacing = 30
         button_y = 20
+        buttons_start_x = 250
         
-        # Adjust button positions to account for logo
-        buttons_start_x = 250  # Start buttons after the logo
-        
-        # Create main buttons
         self.generate_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2,
             button_y,
             button_width,
             button_height,
             "Generate",
-            self.generate_all_mazes,
+            self.generate_maze,
             self.button_style
         )
         
         self.solve_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + button_width + button_spacing,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2 + button_width + button_spacing,
             button_y,
             button_width,
             button_height,
             "Solve Maze",
-            self.solve_all_mazes,
+            self.solve_maze,
             self.button_style
         )
         
-        # Create theme dropdowns
         self.app_theme_dropdown = Dropdown(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 2,
+            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 2 - button_spacing) // 2 + (button_width + button_spacing) * 2,
             button_y,
             button_width,
             button_height,
@@ -320,63 +494,13 @@ class MazeGame:
             self.button_style
         )
         
-        # Create algorithm and animation theme dropdowns on the left
-        left_dropdown_x = MAZE_OFFSET_X - button_width - 20
-        
-        self.algorithm_dropdown = Dropdown(
-            left_dropdown_x,
-            MAZE_OFFSET_Y,
-            button_width,
-            button_height,
-            list(self.solvers.keys()),
-            self.button_style
-        )
-        
-        self.animation_theme_dropdown = Dropdown(
-            left_dropdown_x,
-            MAZE_OFFSET_Y + button_height + 10,
-            button_width,
-            button_height,
-            ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"],
-            self.button_style
-        )
-        
         self.buttons = [self.generate_button, self.solve_button]
     
-    def generate_all_mazes(self):
-        """Generate new maze."""
-        self.mazes[0] = self.maze_generators[0].generate()
-        self.solutions[0] = None
+    def generate_maze(self):
+        self.maze_component.generate_maze()
     
-    def solve_all_mazes(self):
-        """Start solving all mazes."""
-        for i in range(1):
-            if self.mazes[i] is not None and not self.solving[i]:
-                self.solving[i] = True
-                self.solutions[i] = None
-                self.current_cells[i] = None
-                self.explored_cells[i] = set()
-                start, end = self.maze_generators[i].get_start_end_points()
-                solver_class = self.solvers[self.current_solver]
-                self.solver = solver_class(self.mazes[i])
-                self.solver_generator = self.solver.solve_step_by_step(start, end)
-                self.update_solving(i)
-    
-    def update_solving(self, maze_index):
-        """Update the solving animation state for a specific maze."""
-        if self.solving[maze_index]:
-            try:
-                result = next(self.solver_generator)
-                if isinstance(result, tuple):
-                    # Current cell being explored
-                    self.current_cells[maze_index] = result
-                    self.explored_cells[maze_index].add(result)
-                elif isinstance(result, list):
-                    # Final solution path
-                    self.solutions[maze_index] = result
-                    self.solving[maze_index] = False
-            except StopIteration:
-                self.solving[maze_index] = False
+    def solve_maze(self):
+        self.maze_component.start_solving(self.solvers[self.maze_component.algorithm_dropdown.selected])
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
@@ -386,18 +510,9 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
-        self.algorithm_dropdown.style = self.button_style
-        self.animation_theme_dropdown.style = self.button_style
+        self.maze_component.algorithm_dropdown.style = self.button_style
+        self.maze_component.animation_theme_dropdown.style = self.button_style
         self.current_logo = self.logos[theme_name]
-    
-    def change_animation_theme(self, theme_name):
-        """Change the current animation theme."""
-        self.animation_theme.set_theme(theme_name.lower())
-    
-    def change_algorithm(self, algorithm_name):
-        """Change the current solving algorithm."""
-        if algorithm_name in self.solvers:
-            self.current_solver = algorithm_name
     
     def run(self):
         """Main game loop."""
@@ -415,15 +530,10 @@ class MazeGame:
                 if selected_theme:
                     self.change_app_theme(selected_theme)
                 
-                # Handle algorithm dropdown
-                selected_algorithm = self.algorithm_dropdown.handle_event(event)
-                if selected_algorithm:
-                    self.change_algorithm(selected_algorithm)
-                
-                # Handle animation theme dropdown
-                selected_animation_theme = self.animation_theme_dropdown.handle_event(event)
-                if selected_animation_theme:
-                    self.change_animation_theme(selected_animation_theme)
+                # Handle maze component events
+                algorithm, animation_theme = self.maze_component.handle_event(event)
+                if animation_theme:
+                    self.animation_theme.set_theme(animation_theme.lower())
                 
                 # Handle button events
                 for button in self.buttons:
@@ -431,19 +541,18 @@ class MazeGame:
                     if action:
                         action()
             
-            # Update solving animation for all mazes
-            for i in range(1):
-                if self.solving[i]:
-                    self.update_solving(i)
+            # Update solving animation
+            if self.maze_component.solving:
+                self.maze_component.update_solving()
             
             self.draw()
             self.clock.tick(FPS)
         
         pygame.quit()
         sys.exit()
-        
+    
     def draw(self):
-        """Draw the maze and its solution."""
+        """Draw the game screen."""
         self.screen.fill(self.app_theme.background)
         
         # Draw current theme's logo
@@ -453,65 +562,11 @@ class MazeGame:
         for button in self.buttons:
             button.draw(self.screen)
         
-        # Draw dropdowns
+        # Draw app theme dropdown
         self.app_theme_dropdown.draw(self.screen)
-        self.algorithm_dropdown.draw(self.screen)
-        self.animation_theme_dropdown.draw(self.screen)
         
-        # Draw the maze
-        maze_index = 0
-        maze_offset_y = MAZE_OFFSET_Y
-        
-        # Draw maze
-        for y in range(self.mazes[maze_index].shape[0]):
-            for x in range(self.mazes[maze_index].shape[1]):
-                rect = pygame.Rect(
-                    x * CELL_SIZE + MAZE_OFFSET_X,
-                    y * CELL_SIZE + maze_offset_y,
-                    CELL_SIZE,
-                    CELL_SIZE
-                )
-                if self.mazes[maze_index][y, x] == 1:  # Wall
-                    pygame.draw.rect(self.screen, self.app_theme.border, rect)
-                else:  # Path
-                    pygame.draw.rect(self.screen, self.app_theme.accent, rect)
-        
-        # Draw start and end points
-        start, end = self.maze_generators[maze_index].get_start_end_points()
-        pygame.draw.rect(self.screen, self.app_theme.start_color,
-                       (start[0] * CELL_SIZE + MAZE_OFFSET_X,
-                        start[1] * CELL_SIZE + maze_offset_y,
-                        CELL_SIZE, CELL_SIZE))
-        pygame.draw.rect(self.screen, self.app_theme.end_color,
-                       (end[0] * CELL_SIZE + MAZE_OFFSET_X,
-                        end[1] * CELL_SIZE + maze_offset_y,
-                        CELL_SIZE, CELL_SIZE))
-        
-        # Draw explored cells
-        for x, y in self.explored_cells[maze_index]:
-            if (x, y) != start and (x, y) != end:
-                pygame.draw.rect(self.screen, self.animation_theme.get_trail_color(),
-                               (x * CELL_SIZE + MAZE_OFFSET_X,
-                                y * CELL_SIZE + maze_offset_y,
-                                CELL_SIZE, CELL_SIZE))
-        
-        # Draw current cell
-        if self.current_cells[maze_index]:
-            x, y = self.current_cells[maze_index]
-            if (x, y) != start and (x, y) != end:
-                pygame.draw.rect(self.screen, self.animation_theme.current_cell,
-                               (x * CELL_SIZE + MAZE_OFFSET_X,
-                                y * CELL_SIZE + maze_offset_y,
-                                CELL_SIZE, CELL_SIZE))
-        
-        # Draw solution path
-        if self.solutions[maze_index]:
-            for x, y in self.solutions[maze_index]:
-                if (x, y) != start and (x, y) != end:
-                    pygame.draw.rect(self.screen, self.app_theme.solution_color,
-                                   (x * CELL_SIZE + MAZE_OFFSET_X,
-                                    y * CELL_SIZE + maze_offset_y,
-                                    CELL_SIZE, CELL_SIZE))
+        # Draw maze component
+        self.maze_component.draw(self.screen, self.app_theme, self.animation_theme)
         
         pygame.display.flip()
 
