@@ -526,8 +526,8 @@ class MazeComponent:
         timer_text_rect = timer_surface.get_rect(center=self.timer_rect.center)
         screen.blit(timer_surface, timer_text_rect)
         
-        # Calculate maze position (centered horizontally in the component)
-        maze_x = self.x + (self.width - self.maze_width * self.cell_size) // 2
+        # Calculate maze position (aligned to left side of component)
+        maze_x = self.x + self.close_button_width + 10 - 30  # Start after close button and move left 30 pixels
         maze_y = self.y + 50  # Below dropdowns
         
         # Draw maze
