@@ -723,7 +723,7 @@ class MazeGame:
             button_y,
             button_width,
             button_height,
-            "Randomize All",
+            "Random",
             self.randomize_all_mazes,
             self.button_style
         )
@@ -827,9 +827,12 @@ class MazeGame:
         self.current_logo = self.logos[theme_name]
     
     def randomize_all_mazes(self):
-        """Randomize algorithm and theme for all maze components."""
+        """Randomize algorithm and theme for all maze components and reset any running mazes."""
         import random
         for component in self.maze_components:
+            # Reset any running mazes
+            component.reset_solving()
+            
             # Randomly select new algorithm and theme
             random_algorithm = random.choice(list(self.solvers.keys()))
             random_theme = random.choice(self.animation_themes)
