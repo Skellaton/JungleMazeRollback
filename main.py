@@ -260,17 +260,38 @@ class MazeComponent:
         button_width = 180
         button_height = 40
         button_spacing = 10
-        self.width = max(maze_width * cell_size, button_width * 3 + button_spacing * 2)
+        self.close_button_width = 40  # Width of close button
+        self.timer_width = 120  # Width of timer box
+        self.width = max(maze_width * cell_size, 
+                        self.close_button_width + button_spacing + 
+                        button_width * 2 + button_spacing * 2 +
+                        self.timer_width)
         self.height = maze_height * cell_size + button_height * 2 + button_spacing * 2
         
         # Timer properties
         self.start_time = 0
         self.elapsed_time = 0
         self.timer_font = pygame.font.SysFont('consolas', 24)
+        self.timer_rect = pygame.Rect(
+            x + self.close_button_width + button_spacing + button_width * 2 + button_spacing * 2,
+            y,
+            self.timer_width,
+            button_height
+        )
+        
+        # Close button properties
+        self.close_button_rect = pygame.Rect(
+            x,  # Start at component's x
+            y,  # Start at component's y
+            self.close_button_width,
+            button_height  # Same height as dropdowns
+        )
+        self.close_button_hovered = False
+        self.button_style = button_style
         
         # Create dropdowns
         self.algorithm_dropdown = Dropdown(
-            x,
+            x + self.close_button_width + button_spacing,  # Position after close button
             y,
             button_width,
             button_height,
@@ -279,7 +300,7 @@ class MazeComponent:
         )
         
         self.animation_theme_dropdown = Dropdown(
-            x + button_width + button_spacing,
+            x + self.close_button_width + button_spacing + button_width + button_spacing,  # Position after algorithm dropdown
             y,
             button_width,
             button_height,
@@ -345,9 +366,15 @@ class MazeComponent:
         # Update z-index tracking
         self.dropdowns_open = self.algorithm_dropdown.is_open or self.animation_theme_dropdown.is_open
         
-        # Handle dragging
+        # Handle close button
+        if event.type == pygame.MOUSEMOTION:
+            self.close_button_hovered = self.close_button_rect.collidepoint(event.pos)
+        
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left click
+                if self.close_button_rect.collidepoint(event.pos):
+                    return algorithm, animation_theme, "close"
+                
                 mouse_x, mouse_y = event.pos
                 # Check if click is in the component but not in the dropdowns
                 if (self.x <= mouse_x <= self.x + self.width and 
@@ -366,13 +393,17 @@ class MazeComponent:
                 mouse_x, mouse_y = event.pos
                 self.x = mouse_x - self.drag_offset_x
                 self.y = mouse_y - self.drag_offset_y
-                # Update dropdown positions
-                self.algorithm_dropdown.rect.x = self.x
+                # Update positions
+                self.close_button_rect.x = self.x
+                self.close_button_rect.y = self.y
+                self.algorithm_dropdown.rect.x = self.x + self.close_button_width + 10
                 self.algorithm_dropdown.rect.y = self.y
-                self.animation_theme_dropdown.rect.x = self.x + 180 + 10
+                self.animation_theme_dropdown.rect.x = self.x + self.close_button_width + 10 + 180 + 10
                 self.animation_theme_dropdown.rect.y = self.y
+                self.timer_rect.x = self.x + self.close_button_width + 10 + 180 * 2 + 20
+                self.timer_rect.y = self.y
         
-        return algorithm, animation_theme
+        return algorithm, animation_theme, None
     
     def draw(self, screen, app_theme, animation_theme):
         # Draw background for the entire component
@@ -380,17 +411,34 @@ class MazeComponent:
         pygame.draw.rect(screen, app_theme.accent, component_rect)
         pygame.draw.rect(screen, app_theme.border, component_rect, 2)
         
+        # Draw close button
+        color = self.button_style.hover_color if self.close_button_hovered else self.button_style.background_color
+        pygame.draw.rect(screen, color, self.close_button_rect)
+        pygame.draw.rect(screen, self.button_style.border_color, self.close_button_rect, self.button_style.border_width)
+        
+        # Draw X symbol
+        x_margin = 12
+        x_color = self.button_style.text_color
+        pygame.draw.line(screen, x_color, 
+                        (self.close_button_rect.left + x_margin, self.close_button_rect.centery - x_margin + 2),
+                        (self.close_button_rect.right - x_margin, self.close_button_rect.centery + x_margin - 2), 2)
+        pygame.draw.line(screen, x_color,
+                        (self.close_button_rect.left + x_margin, self.close_button_rect.centery + x_margin - 2),
+                        (self.close_button_rect.right - x_margin, self.close_button_rect.centery - x_margin + 2), 2)
+        
         # Draw dropdowns
         self.algorithm_dropdown.draw(screen)
         self.animation_theme_dropdown.draw(screen)
         
-        # Draw timer
-        timer_text = f"Time: {self.elapsed_time:.2f}s"
-        timer_surface = self.timer_font.render(timer_text, True, app_theme.text)
-        timer_rect = timer_surface.get_rect(
-            topleft=(self.x + self.width - 150, self.y + 10)
-        )
-        screen.blit(timer_surface, timer_rect)
+        # Draw timer box
+        pygame.draw.rect(screen, self.button_style.background_color, self.timer_rect)
+        pygame.draw.rect(screen, self.button_style.border_color, self.timer_rect, self.button_style.border_width)
+        
+        # Draw timer text
+        timer_text = f"{self.elapsed_time:.2f}s"
+        timer_surface = self.timer_font.render(timer_text, True, self.button_style.text_color)
+        timer_text_rect = timer_surface.get_rect(center=self.timer_rect.center)
+        screen.blit(timer_surface, timer_text_rect)
         
         # Calculate maze position (centered horizontally in the component)
         maze_x = self.x + (self.width - self.maze_width * self.cell_size) // 2
@@ -528,10 +576,21 @@ class MazeGame:
         self.buttons = [self.generate_button, self.solve_button]
     
     def generate_maze(self):
-        self.maze_component.generate_maze()
+        if hasattr(self, 'maze_component'):
+            self.maze_component.generate_maze()
+        else:
+            self.maze_component = MazeComponent(
+                MAZE_OFFSET_X,
+                MAZE_OFFSET_Y,
+                MAZE_WIDTH,
+                MAZE_HEIGHT,
+                CELL_SIZE,
+                self.button_style
+            )
     
     def solve_maze(self):
-        self.maze_component.start_solving(self.solvers[self.maze_component.algorithm_dropdown.selected])
+        if hasattr(self, 'maze_component'):
+            self.maze_component.start_solving(self.solvers[self.maze_component.algorithm_dropdown.selected])
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
@@ -541,8 +600,9 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
-        self.maze_component.algorithm_dropdown.style = self.button_style
-        self.maze_component.animation_theme_dropdown.style = self.button_style
+        if hasattr(self, 'maze_component'):
+            self.maze_component.algorithm_dropdown.style = self.button_style
+            self.maze_component.animation_theme_dropdown.style = self.button_style
         self.current_logo = self.logos[theme_name]
     
     def run(self):
@@ -562,9 +622,12 @@ class MazeGame:
                     self.change_app_theme(selected_theme)
                 
                 # Handle maze component events
-                algorithm, animation_theme = self.maze_component.handle_event(event)
-                if animation_theme:
-                    self.animation_theme.set_theme(animation_theme.lower())
+                if hasattr(self, 'maze_component'):
+                    algorithm, animation_theme, close = self.maze_component.handle_event(event)
+                    if animation_theme:
+                        self.animation_theme.set_theme(animation_theme.lower())
+                    if close == "close":
+                        delattr(self, 'maze_component')
                 
                 # Handle button events
                 for button in self.buttons:
@@ -573,7 +636,7 @@ class MazeGame:
                         action()
             
             # Update solving animation
-            if self.maze_component.solving:
+            if hasattr(self, 'maze_component') and self.maze_component.solving:
                 self.maze_component.update_solving()
             
             self.draw()
@@ -596,8 +659,9 @@ class MazeGame:
         # Draw app theme dropdown
         self.app_theme_dropdown.draw(self.screen)
         
-        # Draw maze component
-        self.maze_component.draw(self.screen, self.app_theme, self.animation_theme)
+        # Draw maze component if it exists
+        if hasattr(self, 'maze_component'):
+            self.maze_component.draw(self.screen, self.app_theme, self.animation_theme)
         
         pygame.display.flip()
 
