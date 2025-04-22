@@ -605,75 +605,25 @@ class MazeGame:
         self.shared_maze = None
         self.maze_generator = DFSMazeGenerator(MAZE_WIDTH, MAZE_HEIGHT)
         
-        # Create buttons
+        # Create buttons and sliders
         button_width = 180
         button_height = 40
-        button_spacing = 20  # Reduced spacing to fit new button
+        button_spacing = 20
         button_y = 20
-        buttons_start_x = 250
         
-        total_width = button_width * 4 + button_spacing * 3  # Width of all buttons and spacing
-        start_x = buttons_start_x + (WINDOW_WIDTH - buttons_start_x - total_width) // 2  # Center the button group
-        
-        self.generate_button = Button(
-            start_x,
-            button_y,
-            button_width,
-            button_height,
-            "Generate",
-            self.generate_maze,
-            self.button_style
-        )
-        
-        self.solve_button = Button(
-            start_x + button_width + button_spacing,
-            button_y,
-            button_width,
-            button_height,
-            "Solve Maze",
-            self.solve_maze,
-            self.button_style
-        )
-        
-        self.reset_button = Button(
-            start_x + (button_width + button_spacing) * 2,
-            button_y,
-            button_width,
-            button_height,
-            "Reset",
-            self.reset_solving,
-            self.button_style
-        )
-        
-        self.new_maze_button = Button(
-            start_x + (button_width + button_spacing) * 3,
-            button_y,
-            button_width,
-            button_height,
-            "New Maze",
-            self.create_new_maze,
-            self.button_style
-        )
-        
-        self.app_theme_dropdown = Dropdown(
-            start_x + (button_width + button_spacing) * 4,
-            button_y,
-            button_width,
-            button_height,
-            ["Jungle", "Dark"],
-            self.button_style
-        )
-        
-        self.buttons = [self.generate_button, self.solve_button, self.reset_button, self.new_maze_button]
-        
-        # Create dimension sliders
+        # Calculate positions for sliders and buttons
         slider_width = 200
         slider_height = 10
         slider_spacing = 40
-        slider_y = button_y + button_height + 20
+        slider_y = button_y + (button_height - slider_height) // 2  # Center vertically with buttons
         
+        # Position sliders to the left of buttons
+        slider_x = 250
+        buttons_x = slider_x + slider_width + 40  # Add some spacing between sliders and buttons
+        
+        # Create dimension sliders
         self.width_slider = Slider(
-            start_x,
+            slider_x,
             slider_y,
             slider_width,
             slider_height,
@@ -685,7 +635,7 @@ class MazeGame:
         )
         
         self.height_slider = Slider(
-            start_x,
+            slider_x,
             slider_y + slider_spacing,
             slider_width,
             slider_height,
@@ -695,6 +645,58 @@ class MazeGame:
             "Height",
             self.button_style
         )
+        
+        # Create buttons
+        self.generate_button = Button(
+            buttons_x,
+            button_y,
+            button_width,
+            button_height,
+            "Generate",
+            self.generate_maze,
+            self.button_style
+        )
+        
+        self.solve_button = Button(
+            buttons_x + button_width + button_spacing,
+            button_y,
+            button_width,
+            button_height,
+            "Solve Maze",
+            self.solve_maze,
+            self.button_style
+        )
+        
+        self.reset_button = Button(
+            buttons_x + (button_width + button_spacing) * 2,
+            button_y,
+            button_width,
+            button_height,
+            "Reset",
+            self.reset_solving,
+            self.button_style
+        )
+        
+        self.new_maze_button = Button(
+            buttons_x + (button_width + button_spacing) * 3,
+            button_y,
+            button_width,
+            button_height,
+            "New Maze",
+            self.create_new_maze,
+            self.button_style
+        )
+        
+        self.app_theme_dropdown = Dropdown(
+            buttons_x + (button_width + button_spacing) * 4,
+            button_y,
+            button_width,
+            button_height,
+            ["Jungle", "Dark"],
+            self.button_style
+        )
+        
+        self.buttons = [self.generate_button, self.solve_button, self.reset_button, self.new_maze_button]
         
         # Create initial maze component and generate first maze
         self.create_new_maze()
