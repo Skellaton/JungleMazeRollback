@@ -588,6 +588,38 @@ class MazeComponent:
         self.algorithm_dropdown.draw_options(screen)
         self.animation_theme_dropdown.draw_options(screen)
 
+class Scoreboard:
+    def __init__(self, x, y, width, height, theme):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.scores = []  # List of (algorithm, time, theme) tuples
+        self.theme = theme
+        self.font = pygame.font.SysFont('consolas', 20)
+        self.max_entries = 5  # Maximum number of scores to display
+    
+    def add_score(self, algorithm, time, animation_theme):
+        """Add a new score to the scoreboard."""
+        self.scores.append((algorithm, time, animation_theme))
+        # Sort by time (ascending)
+        self.scores.sort(key=lambda x: x[1])
+        # Keep only the best scores
+        if len(self.scores) > self.max_entries:
+            self.scores = self.scores[:self.max_entries]
+    
+    def clear(self):
+        """Clear all scores from the scoreboard."""
+        self.scores = []
+    
+    def draw(self, screen):
+        """Draw the scoreboard."""
+        # Draw scores
+        y_offset = 0  # Start from top since we removed the title
+        for algorithm, time, theme in self.scores:
+            # Create text with algorithm and time
+            text = f"{algorithm}: {time:.2f}s"
+            text_surface = self.font.render(text, True, theme.current_cell)
+            screen.blit(text_surface, (self.rect.x, self.rect.y + y_offset))
+            y_offset += 25
+
 class MazeGame:
     def __init__(self):
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -740,6 +772,15 @@ class MazeGame:
         self.buttons = [self.generate_button, self.solve_button, self.reset_button, 
                        self.new_maze_button, self.randomize_all_button]
         
+        # Initialize scoreboard
+        self.scoreboard = Scoreboard(
+            20,  # x position (next to logo)
+            220,  # y position (below logo)
+            200,  # width
+            160,  # height (5 entries * 25px + padding)
+            self.app_theme
+        )
+        
         # Create initial maze component and generate first maze
         self.create_new_maze()
         self.generate_maze()  # Generate initial maze
@@ -793,11 +834,13 @@ class MazeGame:
     
     def solve_maze(self):
         """Solve all maze components simultaneously."""
+        self.scoreboard.clear()  # Clear scoreboard when solving starts
         for component in self.maze_components:
             component.start_solving(self.solvers[component.algorithm_dropdown.selected])
     
     def reset_solving(self):
         """Reset the solving animation for all maze components."""
+        self.scoreboard.clear()  # Clear scoreboard when reset is pressed
         for component in self.maze_components:
             component.reset_solving()
     
@@ -842,6 +885,20 @@ class MazeGame:
             component.animation_theme_dropdown.selected = random_theme
             component.animation_theme.set_theme(random_theme.lower())
     
+    def update_solving(self):
+        """Update solving animation for all components and check for completed mazes."""
+        for component in self.maze_components:
+            if component.solving:
+                component.update_solving()
+                # Check if maze is solved
+                if not component.solving and component.solution is not None and component.elapsed_time > 0:
+                    # Add to scoreboard
+                    self.scoreboard.add_score(
+                        component.algorithm_dropdown.selected,
+                        component.elapsed_time,
+                        component.animation_theme
+                    )
+    
     def run(self):
         """Main game loop."""
         running = True
@@ -880,10 +937,8 @@ class MazeGame:
                     if action:
                         action()
             
-            # Update solving animation for all components
-            for component in self.maze_components:
-                if component.solving:
-                    component.update_solving()
+            # Update solving animation and check for completed mazes
+            self.update_solving()
             
             self.draw()
             self.clock.tick(FPS)
@@ -919,6 +974,9 @@ class MazeGame:
         
         # Draw current theme's logo
         self.screen.blit(self.current_logo, (20, 10))
+        
+        # Draw scoreboard
+        self.scoreboard.draw(self.screen)
         
         # Draw buttons
         for button in self.buttons:
