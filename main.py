@@ -672,12 +672,19 @@ class MazeGame:
         theme_name = theme_name.lower()
         self.app_theme.set_theme(theme_name)
         self.button_style = ButtonStyle(self.app_theme)
+        
+        # Update all buttons and dropdowns
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
+        
+        # Update all components
         for component in self.maze_components:
+            component.button_style = self.button_style
             component.algorithm_dropdown.style = self.button_style
             component.animation_theme_dropdown.style = self.button_style
+        
+        # Update logo
         self.current_logo = self.logos[theme_name]
     
     def run(self):
@@ -731,8 +738,9 @@ class MazeGame:
         for button in self.buttons:
             button.draw(self.screen)
         
-        # Draw app theme dropdown
+        # Draw app theme dropdown and its options
         self.app_theme_dropdown.draw(self.screen)
+        self.app_theme_dropdown.draw_options(self.screen)
         
         # Draw all maze components
         for component in self.maze_components:
