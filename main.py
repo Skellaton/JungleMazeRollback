@@ -664,6 +664,19 @@ class MazeGame:
             self.button_style
         )
         
+        # Add cell size slider
+        self.cell_size_slider = Slider(
+            slider_x,
+            slider_y + slider_spacing * 2,
+            slider_width,
+            slider_height,
+            10,  # min cell size
+            30,  # max cell size
+            CELL_SIZE,  # initial cell size
+            "Cell Size",
+            self.button_style
+        )
+        
         # Create buttons
         self.generate_button = Button(
             buttons_x,
@@ -791,6 +804,7 @@ class MazeGame:
         # Update sliders
         self.width_slider.update_style(self.button_style)
         self.height_slider.update_style(self.button_style)
+        self.cell_size_slider.update_style(self.button_style)
         
         # Update all components
         for component in self.maze_components:
@@ -820,9 +834,10 @@ class MazeGame:
                 # Handle dimension sliders
                 new_width = self.width_slider.handle_event(event)
                 new_height = self.height_slider.handle_event(event)
+                new_cell_size = self.cell_size_slider.handle_event(event)
                 
                 # If dimensions changed, update maze
-                if new_width is not None or new_height is not None:
+                if new_width is not None or new_height is not None or new_cell_size is not None:
                     self.update_maze_dimensions()
                 
                 # Handle maze component events
@@ -853,9 +868,20 @@ class MazeGame:
         """Update maze dimensions and regenerate if needed."""
         new_width = self.width_slider.value
         new_height = self.height_slider.value
+        new_cell_size = self.cell_size_slider.value
         
         # Update maze generator with new dimensions
         self.maze_generator = DFSMazeGenerator(new_width, new_height)
+        
+        # Update cell size for all components
+        for component in self.maze_components:
+            component.cell_size = new_cell_size
+            # Recalculate component dimensions based on new cell size
+            component.width = max(component.maze_width * new_cell_size, 
+                                component.close_button_width + 10 + 
+                                180 * 2 + 20 +
+                                component.timer_width)
+            component.height = component.maze_height * new_cell_size + 40 * 2 + 10 * 2
         
         # Regenerate maze with new dimensions
         self.generate_maze()
@@ -874,6 +900,7 @@ class MazeGame:
         # Draw dimension sliders
         self.width_slider.draw(self.screen)
         self.height_slider.draw(self.screen)
+        self.cell_size_slider.draw(self.screen)
         
         # Draw app theme dropdown and its options
         self.app_theme_dropdown.draw(self.screen)
