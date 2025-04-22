@@ -7,7 +7,7 @@ from maze.solvers import AStarMazeSolver, BFSMazeSolver, RandomMazeSolver, Dijks
 pygame.init()
 
 # Constants
-CELL_SIZE = 15
+CELL_SIZE = 10
 MAZE_WIDTH = 35
 MAZE_HEIGHT = 12  # Reduced from 18 to 12
 BUTTON_HEIGHT = 80
@@ -739,7 +739,7 @@ class MazeGame:
             slider_height,
             10,  # min cell size
             30,  # max cell size
-            CELL_SIZE,  # initial cell size
+            10,  # initial cell size (changed from CELL_SIZE to 10)
             "Cell Size",
             self.button_style
         )
