@@ -243,6 +243,61 @@ class Dropdown:
                             return self.selected
         return None
 
+class Slider:
+    def __init__(self, x, y, width, height, min_value, max_value, initial_value, label, style):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.value = initial_value
+        self.label = label
+        self.style = style
+        self.dragging = False
+        self.font = pygame.font.SysFont('consolas', 16)
+        
+    def draw(self, screen):
+        # Draw slider track
+        pygame.draw.rect(screen, self.style.background_color, self.rect)
+        pygame.draw.rect(screen, self.style.border_color, self.rect, self.style.border_width)
+        
+        # Draw slider handle
+        handle_x = self.rect.x + (self.value - self.min_value) / (self.max_value - self.min_value) * self.rect.width
+        handle_rect = pygame.Rect(handle_x - 5, self.rect.y - 5, 10, self.rect.height + 10)
+        pygame.draw.rect(screen, self.style.hover_color if self.dragging else self.style.background_color, handle_rect)
+        pygame.draw.rect(screen, self.style.border_color, handle_rect, self.style.border_width)
+        
+        # Draw label and value
+        label_text = f"{self.label}: {self.value}"
+        label_surface = self.font.render(label_text, True, self.style.text_color)
+        screen.blit(label_surface, (self.rect.x, self.rect.y - 20))
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                handle_x = self.rect.x + (self.value - self.min_value) / (self.max_value - self.min_value) * self.rect.width
+                handle_rect = pygame.Rect(handle_x - 5, self.rect.y - 5, 10, self.rect.height + 10)
+                if handle_rect.collidepoint(event.pos):
+                    self.dragging = True
+                elif self.rect.collidepoint(event.pos):
+                    # Click on track - move handle to click position
+                    self.dragging = True
+                    self.update_value(event.pos[0])
+        
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:  # Left click
+                self.dragging = False
+        
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                self.update_value(event.pos[0])
+        
+        return self.value if self.dragging else None
+    
+    def update_value(self, mouse_x):
+        # Calculate new value based on mouse position
+        relative_x = max(0, min(mouse_x - self.rect.x, self.rect.width))
+        self.value = int(self.min_value + (relative_x / self.rect.width) * (self.max_value - self.min_value))
+        return self.value
+
 class MazeComponent:
     def __init__(self, x, y, maze_width, maze_height, cell_size, button_style, maze_generator):
         self.x = x
@@ -611,6 +666,36 @@ class MazeGame:
         
         self.buttons = [self.generate_button, self.solve_button, self.reset_button, self.new_maze_button]
         
+        # Create dimension sliders
+        slider_width = 200
+        slider_height = 10
+        slider_spacing = 40
+        slider_y = button_y + button_height + 20
+        
+        self.width_slider = Slider(
+            start_x,
+            slider_y,
+            slider_width,
+            slider_height,
+            5,  # min width
+            50,  # max width
+            MAZE_WIDTH,  # initial width
+            "Width",
+            self.button_style
+        )
+        
+        self.height_slider = Slider(
+            start_x,
+            slider_y + slider_spacing,
+            slider_width,
+            slider_height,
+            5,  # min height
+            30,  # max height
+            MAZE_HEIGHT,  # initial height
+            "Height",
+            self.button_style
+        )
+        
         # Create initial maze component and generate first maze
         self.create_new_maze()
         self.generate_maze()  # Generate initial maze
@@ -703,6 +788,14 @@ class MazeGame:
                 if selected_theme:
                     self.change_app_theme(selected_theme)
                 
+                # Handle dimension sliders
+                new_width = self.width_slider.handle_event(event)
+                new_height = self.height_slider.handle_event(event)
+                
+                # If dimensions changed, update maze
+                if new_width is not None or new_height is not None:
+                    self.update_maze_dimensions()
+                
                 # Handle maze component events
                 for i, component in enumerate(self.maze_components):
                     algorithm, animation_theme, close = component.handle_event(event)
@@ -727,6 +820,17 @@ class MazeGame:
         pygame.quit()
         sys.exit()
     
+    def update_maze_dimensions(self):
+        """Update maze dimensions and regenerate if needed."""
+        new_width = self.width_slider.value
+        new_height = self.height_slider.value
+        
+        # Update maze generator with new dimensions
+        self.maze_generator = DFSMazeGenerator(new_width, new_height)
+        
+        # Regenerate maze with new dimensions
+        self.generate_maze()
+    
     def draw(self):
         """Draw the game screen."""
         self.screen.fill(self.app_theme.background)
@@ -738,13 +842,17 @@ class MazeGame:
         for button in self.buttons:
             button.draw(self.screen)
         
+        # Draw dimension sliders
+        self.width_slider.draw(self.screen)
+        self.height_slider.draw(self.screen)
+        
         # Draw app theme dropdown and its options
         self.app_theme_dropdown.draw(self.screen)
         self.app_theme_dropdown.draw_options(self.screen)
         
         # Draw all maze components
         for component in self.maze_components:
-            component.draw(self.screen, self.app_theme, None)  # Pass None for animation theme since each component has its own
+            component.draw(self.screen, self.app_theme, None)
         
         pygame.display.flip()
 
