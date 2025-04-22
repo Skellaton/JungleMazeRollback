@@ -188,7 +188,7 @@ class Dropdown:
         self.is_open = False
         self.style = style
         self.option_rects = []
-        
+    
     def draw(self, screen):
         # Draw main button
         color = self.style.get_background_color(self.is_open)
@@ -207,7 +207,8 @@ class Dropdown:
             (self.rect.right - 5, self.rect.centery)
         ]
         pygame.draw.polygon(screen, self.style.text_color, arrow_points)
-        
+    
+    def draw_options(self, screen):
         # Draw options if open
         if self.is_open:
             self.option_rects = []
@@ -228,7 +229,7 @@ class Dropdown:
                 text_surface = self.style.font.render(option, True, self.style.text_color)
                 text_rect = text_surface.get_rect(center=option_rect.center)
                 screen.blit(text_surface, text_rect)
-                
+
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left click
@@ -259,8 +260,13 @@ class MazeComponent:
         button_width = 180
         button_height = 40
         button_spacing = 10
-        self.width = max(maze_width * cell_size, button_width * 2 + button_spacing)
+        self.width = max(maze_width * cell_size, button_width * 3 + button_spacing * 2)
         self.height = maze_height * cell_size + button_height * 2 + button_spacing * 2
+        
+        # Timer properties
+        self.start_time = 0
+        self.elapsed_time = 0
+        self.timer_font = pygame.font.SysFont('consolas', 24)
         
         # Create dropdowns
         self.algorithm_dropdown = Dropdown(
@@ -293,6 +299,9 @@ class MazeComponent:
         
         # Generate initial maze
         self.generate_maze()
+        
+        # Add z-index tracking
+        self.dropdowns_open = False
     
     def generate_maze(self):
         self.maze = self.maze_generator.generate()
@@ -300,6 +309,7 @@ class MazeComponent:
         self.solving = False
         self.current_cell = None
         self.explored_cells = set()
+        self.elapsed_time = 0
     
     def start_solving(self, solver_class):
         if self.maze is not None and not self.solving:
@@ -307,6 +317,7 @@ class MazeComponent:
             self.solution = None
             self.current_cell = None
             self.explored_cells = set()
+            self.start_time = pygame.time.get_ticks()
             start, end = self.maze_generator.get_start_end_points()
             self.solver = solver_class(self.maze)
             self.solver_generator = self.solver.solve_step_by_step(start, end)
@@ -321,19 +332,27 @@ class MazeComponent:
                 elif isinstance(result, list):
                     self.solution = result
                     self.solving = False
+                    self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
             except StopIteration:
                 self.solving = False
+                self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
     
     def handle_event(self, event):
         # Handle dropdowns
         algorithm = self.algorithm_dropdown.handle_event(event)
         animation_theme = self.animation_theme_dropdown.handle_event(event)
         
+        # Update z-index tracking
+        self.dropdowns_open = self.algorithm_dropdown.is_open or self.animation_theme_dropdown.is_open
+        
         # Handle dragging
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left click
                 mouse_x, mouse_y = event.pos
-                if self.x <= mouse_x <= self.x + self.width and self.y <= mouse_y <= self.y + self.height:
+                # Check if click is in the component but not in the dropdowns
+                if (self.x <= mouse_x <= self.x + self.width and 
+                    self.y + 50 <= mouse_y <= self.y + self.height and
+                    not self.dropdowns_open):  # Don't allow dragging when dropdowns are open
                     self.dragging = True
                     self.drag_offset_x = mouse_x - self.x
                     self.drag_offset_y = mouse_y - self.y
@@ -364,6 +383,14 @@ class MazeComponent:
         # Draw dropdowns
         self.algorithm_dropdown.draw(screen)
         self.animation_theme_dropdown.draw(screen)
+        
+        # Draw timer
+        timer_text = f"Time: {self.elapsed_time:.2f}s"
+        timer_surface = self.timer_font.render(timer_text, True, app_theme.text)
+        timer_rect = timer_surface.get_rect(
+            topleft=(self.x + self.width - 150, self.y + 10)
+        )
+        screen.blit(timer_surface, timer_rect)
         
         # Calculate maze position (centered horizontally in the component)
         maze_x = self.x + (self.width - self.maze_width * self.cell_size) // 2
@@ -419,6 +446,10 @@ class MazeComponent:
                                    (x * self.cell_size + maze_x,
                                     y * self.cell_size + maze_y,
                                     self.cell_size, self.cell_size))
+        
+        # Draw dropdown options on top of everything
+        self.algorithm_dropdown.draw_options(screen)
+        self.animation_theme_dropdown.draw_options(screen)
 
 class MazeGame:
     def __init__(self):
