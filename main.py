@@ -255,7 +255,10 @@ class MazeComponent:
         self.maze_width = maze_width
         self.maze_height = maze_height
         self.cell_size = cell_size
-        self.maze_generator = maze_generator  # Store reference to maze generator
+        self.maze_generator = maze_generator
+        
+        # Create own animation theme instance
+        self.animation_theme = AnimationTheme()
         
         # Component dimensions
         button_width = 180
@@ -411,9 +414,14 @@ class MazeComponent:
                 self.timer_rect.x = self.x + self.close_button_width + 10 + 180 * 2 + 20
                 self.timer_rect.y = self.y
         
+        # Apply theme change if needed
+        if animation_theme:
+            self.animation_theme.set_theme(animation_theme.lower())
+        
         return algorithm, animation_theme, None
     
-    def draw(self, screen, app_theme, animation_theme):
+    def draw(self, screen, app_theme, _):
+        """Draw the maze component. The third parameter is ignored since we use our own animation theme."""
         # Draw background for the entire component
         component_rect = pygame.Rect(self.x, self.y, self.width, self.height)
         pygame.draw.rect(screen, app_theme.accent, component_rect)
@@ -480,7 +488,7 @@ class MazeComponent:
         # Draw explored cells
         for x, y in self.explored_cells:
             if (x, y) != start and (x, y) != end:
-                pygame.draw.rect(screen, animation_theme.get_trail_color(),
+                pygame.draw.rect(screen, self.animation_theme.get_trail_color(),
                                (x * self.cell_size + maze_x,
                                 y * self.cell_size + maze_y,
                                 self.cell_size, self.cell_size))
@@ -489,7 +497,7 @@ class MazeComponent:
         if self.current_cell:
             x, y = self.current_cell
             if (x, y) != start and (x, y) != end:
-                pygame.draw.rect(screen, animation_theme.current_cell,
+                pygame.draw.rect(screen, self.animation_theme.current_cell,
                                (x * self.cell_size + maze_x,
                                 y * self.cell_size + maze_y,
                                 self.cell_size, self.cell_size))
@@ -522,18 +530,18 @@ class MazeGame:
         
         # Initialize themes
         self.app_theme = Theme()
-        self.animation_theme = AnimationTheme()
         self.button_style = ButtonStyle(self.app_theme)
         
         # Set initial logo based on default theme
         self.current_logo = self.logos["jungle"]
         
-        # Initialize solvers
+        # Initialize solvers and themes
         self.solvers = {
             "A*": AStarMazeSolver,
             "BFS": BFSMazeSolver,
             "Random": RandomMazeSolver
         }
+        self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
         
         # Initialize maze components list
         self.maze_components = []
@@ -615,7 +623,7 @@ class MazeGame:
             component.set_maze(self.shared_maze)
     
     def create_new_maze(self):
-        """Create a new maze component."""
+        """Create a new maze component with random algorithm and theme."""
         # Calculate position for new maze component
         x = MAZE_OFFSET_X
         y = MAZE_OFFSET_Y + len(self.maze_components) * (MAZE_HEIGHT * CELL_SIZE + MAZE_SPACING)
@@ -628,8 +636,19 @@ class MazeGame:
             MAZE_HEIGHT,
             CELL_SIZE,
             self.button_style,
-            self.maze_generator  # Pass the maze generator
+            self.maze_generator
         )
+        
+        # Randomly select algorithm and theme
+        import random
+        random_algorithm = random.choice(list(self.solvers.keys()))
+        random_theme = random.choice(self.animation_themes)
+        
+        # Set the random selections
+        new_component.algorithm_dropdown.selected = random_algorithm
+        new_component.animation_theme_dropdown.selected = random_theme
+        # Apply the theme change to the component's own animation theme
+        new_component.animation_theme.set_theme(random_theme.lower())
         
         # If there's a shared maze, set it for the new component
         if self.shared_maze is not None:
@@ -680,8 +699,6 @@ class MazeGame:
                 # Handle maze component events
                 for i, component in enumerate(self.maze_components):
                     algorithm, animation_theme, close = component.handle_event(event)
-                    if animation_theme:
-                        self.animation_theme.set_theme(animation_theme.lower())
                     if close == "close":
                         self.maze_components.pop(i)
                         break
@@ -719,7 +736,7 @@ class MazeGame:
         
         # Draw all maze components
         for component in self.maze_components:
-            component.draw(self.screen, self.app_theme, self.animation_theme)
+            component.draw(self.screen, self.app_theme, None)  # Pass None for animation theme since each component has its own
         
         pygame.display.flip()
 
