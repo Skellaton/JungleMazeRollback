@@ -356,6 +356,16 @@ class MazeComponent:
                 self.solving = False
                 self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
     
+    def reset_solving(self):
+        """Reset the solving animation state."""
+        self.solution = None
+        self.solving = False
+        self.current_cell = None
+        self.explored_cells = set()
+        self.solver = None
+        self.solver_generator = None
+        self.elapsed_time = 0
+    
     def handle_event(self, event):
         # Handle dropdowns
         algorithm = self.algorithm_dropdown.handle_event(event)
@@ -535,12 +545,15 @@ class MazeGame:
         # Create buttons
         button_width = 180
         button_height = 40
-        button_spacing = 30
+        button_spacing = 20  # Reduced spacing to fit new button
         button_y = 20
         buttons_start_x = 250
         
+        total_width = button_width * 4 + button_spacing * 3  # Width of all buttons and spacing
+        start_x = buttons_start_x + (WINDOW_WIDTH - buttons_start_x - total_width) // 2  # Center the button group
+        
         self.generate_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2,
+            start_x,
             button_y,
             button_width,
             button_height,
@@ -550,7 +563,7 @@ class MazeGame:
         )
         
         self.solve_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + button_width + button_spacing,
+            start_x + button_width + button_spacing,
             button_y,
             button_width,
             button_height,
@@ -559,8 +572,18 @@ class MazeGame:
             self.button_style
         )
         
+        self.reset_button = Button(
+            start_x + (button_width + button_spacing) * 2,
+            button_y,
+            button_width,
+            button_height,
+            "Reset",
+            self.reset_solving,
+            self.button_style
+        )
+        
         self.new_maze_button = Button(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 2,
+            start_x + (button_width + button_spacing) * 3,
             button_y,
             button_width,
             button_height,
@@ -570,7 +593,7 @@ class MazeGame:
         )
         
         self.app_theme_dropdown = Dropdown(
-            buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 3,
+            start_x + (button_width + button_spacing) * 4,
             button_y,
             button_width,
             button_height,
@@ -578,7 +601,7 @@ class MazeGame:
             self.button_style
         )
         
-        self.buttons = [self.generate_button, self.solve_button, self.new_maze_button]
+        self.buttons = [self.generate_button, self.solve_button, self.reset_button, self.new_maze_button]
         
         # Create initial maze component and generate first maze
         self.create_new_maze()
@@ -619,6 +642,11 @@ class MazeGame:
         """Solve all maze components simultaneously."""
         for component in self.maze_components:
             component.start_solving(self.solvers[component.algorithm_dropdown.selected])
+    
+    def reset_solving(self):
+        """Reset the solving animation for all maze components."""
+        for component in self.maze_components:
+            component.reset_solving()
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
