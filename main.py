@@ -616,9 +616,9 @@ class MazeGame:
         self.maze_components.append(new_component)
     
     def solve_maze(self):
-        """Solve the most recently created maze."""
-        if self.maze_components:
-            self.maze_components[-1].start_solving(self.solvers[self.maze_components[-1].algorithm_dropdown.selected])
+        """Solve all maze components simultaneously."""
+        for component in self.maze_components:
+            component.start_solving(self.solvers[component.algorithm_dropdown.selected])
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
