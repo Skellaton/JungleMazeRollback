@@ -28,11 +28,19 @@ class AnimationTheme:
         self.themes = {
             "default": {
                 "current_cell": (255, 215, 0),    # Gold
-                "trail": (144, 238, 144)          # Light green
+                "trail": (144, 238, 144),         # Light green
+                "solution": {
+                    "base": (0, 0, 255),          # Blue
+                    "sparkle": None
+                }
             },
             "neon": {
                 "current_cell": (255, 0, 255),    # Magenta
-                "trail": (0, 255, 255)            # Cyan
+                "trail": (0, 255, 255),           # Cyan
+                "solution": {
+                    "base": (0, 0, 255),          # Blue
+                    "sparkle": None
+                }
             },
             "fire": {
                 "current_cell": (255, 69, 0),     # Red-Orange
@@ -45,7 +53,63 @@ class AnimationTheme:
                     (255, 99, 71),  # Tomato Red
                     (255, 50, 0),   # Bright Red
                     (255, 180, 0)   # Light Orange
-                ]
+                ],
+                "solution": {
+                    "base": (0, 0, 255),          # Blue
+                    "sparkle": None
+                }
+            },
+            "gold": {
+                "current_cell": (255, 215, 0),    # Gold
+                "trail": (255, 215, 0),           # Gold
+                "solution": {
+                    "base": (255, 215, 0),        # Gold
+                    "sparkle": [
+                        (255, 255, 0),    # Yellow
+                        (255, 215, 0),    # Gold
+                        (255, 255, 200),  # Light Gold
+                        (255, 200, 0)     # Dark Gold
+                    ]
+                }
+            },
+            "silver": {
+                "current_cell": (192, 192, 192),  # Silver
+                "trail": (192, 192, 192),         # Silver
+                "solution": {
+                    "base": (192, 192, 192),      # Silver
+                    "sparkle": [
+                        (255, 255, 255),  # White
+                        (192, 192, 192),  # Silver
+                        (220, 220, 220),  # Light Silver
+                        (160, 160, 160)   # Dark Silver
+                    ]
+                }
+            },
+            "bronze": {
+                "current_cell": (205, 127, 50),   # Bronze
+                "trail": (205, 127, 50),          # Bronze
+                "solution": {
+                    "base": (205, 127, 50),       # Bronze
+                    "sparkle": [
+                        (218, 165, 32),   # Goldenrod
+                        (205, 127, 50),   # Bronze
+                        (222, 184, 135),  # Burlywood
+                        (184, 115, 51)    # Dark Bronze
+                    ]
+                }
+            },
+            "metal": {
+                "current_cell": (100, 100, 100),  # Darker Gray
+                "trail": (100, 100, 100),         # Darker Gray
+                "solution": {
+                    "base": (100, 100, 100),      # Darker Gray
+                    "sparkle": [
+                        (150, 150, 150),  # Medium Gray
+                        (100, 100, 100),  # Darker Gray
+                        (120, 120, 120),  # Slightly Lighter Gray
+                        (80, 80, 80)      # Very Dark Gray
+                    ]
+                }
             },
             "ocean": {
                 "current_cell": (0, 191, 255),    # Deep Sky Blue
@@ -70,10 +134,14 @@ class AnimationTheme:
         }
         self.set_theme(theme_name)
         self.flame_timer = 0
-        self.FLAME_CHANGE_INTERVAL = 50  # Reduced from 100ms to 50ms for faster flickering
-        self.cell_colors = {}  # Dictionary to store colors for each cell
+        self.FLAME_CHANGE_INTERVAL = 50
+        self.cell_colors = {}
+        self.solution_colors = {}  # Dictionary to store solution cell colors
+        self.solution_timer = 0
+        self.SOLUTION_CHANGE_INTERVAL = 50
         import random
         self.random = random
+        self.original_theme = None  # Store the original theme name
     
     def set_theme(self, theme_name):
         """Set the current animation theme."""
@@ -82,7 +150,11 @@ class AnimationTheme:
             self.current_cell = theme["current_cell"]
             self.trail = theme["trail"]
             self.current_theme = theme_name
+            self.original_theme = theme_name  # Store the original theme
             self.flame_colors = theme.get("flame_colors", None)
+            self.solution_colors = {}  # Reset solution colors when theme changes
+            self.solution_sparkle = theme.get("solution", {}).get("sparkle", None)
+            self.solution_base = theme.get("solution", {}).get("base", (0, 0, 255))
             self.cell_colors = {}  # Reset cell colors when theme changes
     
     def get_random_rainbow_color(self):
@@ -121,6 +193,22 @@ class AnimationTheme:
                 self.cell_colors[cell] = self.random.choice(self.flame_colors)
             return self.cell_colors[cell]
         return self.get_trail_color()
+    
+    def get_solution_color(self, cell):
+        """Get the color for a specific cell in the solution path."""
+        if self.solution_sparkle:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.solution_timer > self.SOLUTION_CHANGE_INTERVAL:
+                self.solution_timer = current_time
+                # Update colors for all solution cells
+                for c in self.solution_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color
+                        self.solution_colors[c] = self.random.choice(self.solution_sparkle)
+            
+            if cell not in self.solution_colors:
+                self.solution_colors[cell] = self.random.choice(self.solution_sparkle)
+            return self.solution_colors[cell]
+        return self.solution_base
 
 class Theme:
     """Class to define the application's color theme."""
@@ -612,7 +700,7 @@ class MazeComponent:
         if self.solution:
             for x, y in self.solution:
                 if (x, y) != self.start_pos and (x, y) != self.end_pos:
-                    pygame.draw.rect(screen, app_theme.solution_color,
+                    pygame.draw.rect(screen, self.animation_theme.get_solution_color((x, y)),
                                    (x * self.cell_size + maze_x,
                                     y * self.cell_size + maze_y,
                                     self.cell_size, self.cell_size))
@@ -807,14 +895,8 @@ class MazeGame:
         self.buttons = [self.generate_button, self.solve_button, self.reset_button, 
                        self.new_maze_button, self.randomize_all_button]
         
-        # Initialize scoreboard
-        self.scoreboard = Scoreboard(
-            20,  # x position (next to logo)
-            220,  # y position (below logo)
-            200,  # width
-            160,  # height (5 entries * 25px + padding)
-            self.app_theme
-        )
+        # Track solved mazes
+        self.solved_mazes = []
         
         # Create initial maze component and generate first maze
         self.create_new_maze()
@@ -835,8 +917,12 @@ class MazeGame:
     def create_new_maze(self):
         """Create a new maze component with random algorithm and theme."""
         # Calculate position for new maze component
-        x = MAZE_OFFSET_X
-        y = MAZE_OFFSET_Y + len(self.maze_components) * (MAZE_HEIGHT * self.cell_size_slider.value + MAZE_SPACING)
+        # Center the maze horizontally
+        maze_width = MAZE_WIDTH * self.cell_size_slider.value
+        x = (WINDOW_WIDTH - maze_width) // 2
+        
+        # Position vertically based on number of existing mazes
+        y = (WINDOW_HEIGHT) // 2
         
         # Create new maze component
         new_component = MazeComponent(
@@ -869,13 +955,12 @@ class MazeGame:
     
     def solve_maze(self):
         """Solve all maze components simultaneously."""
-        self.scoreboard.clear()  # Clear scoreboard when solving starts
         for component in self.maze_components:
             component.start_solving(self.solvers[component.algorithm_dropdown.selected])
     
     def reset_solving(self):
         """Reset the solving animation for all maze components."""
-        self.scoreboard.clear()  # Clear scoreboard when reset is pressed
+        self.solved_mazes = []  # Clear solved mazes list
         for component in self.maze_components:
             component.reset_solving()
     
@@ -940,17 +1025,31 @@ class MazeGame:
     
     def update_solving(self):
         """Update solving animation for all components and check for completed mazes."""
+        # First, check for newly solved mazes
         for component in self.maze_components:
             if component.solving:
                 component.update_solving()
                 # Check if maze is solved
                 if not component.solving and component.solution is not None and component.elapsed_time > 0:
-                    # Add to scoreboard
-                    self.scoreboard.add_score(
-                        component.algorithm_dropdown.selected,
-                        component.elapsed_time,
-                        component.animation_theme
-                    )
+                    # Only process if this maze hasn't been solved yet
+                    if component not in self.solved_mazes:
+                        self.solved_mazes.append(component)
+        
+        # Then, update themes for all solved mazes in order
+        for i, component in enumerate(self.solved_mazes):
+            # Assign theme based on completion order
+            if i == 0:  # First to finish
+                solution_theme = AnimationTheme("gold")
+            elif i == 1:  # Second to finish
+                solution_theme = AnimationTheme("silver")
+            elif i == 2:  # Third to finish
+                solution_theme = AnimationTheme("bronze")
+            else:  # All others
+                solution_theme = AnimationTheme("metal")
+            
+            # Only set the solution color, keeping other colors the same
+            component.animation_theme.solution_base = solution_theme.solution_base
+            component.animation_theme.solution_sparkle = solution_theme.solution_sparkle
     
     def run(self):
         """Main game loop."""
@@ -1027,9 +1126,6 @@ class MazeGame:
         
         # Draw current theme's logo
         self.screen.blit(self.current_logo, (20, 10))
-        
-        # Draw scoreboard
-        self.scoreboard.draw(self.screen)
         
         # Draw buttons
         for button in self.buttons:
