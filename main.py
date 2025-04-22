@@ -718,8 +718,18 @@ class MazeGame:
             self.button_style
         )
         
-        self.app_theme_dropdown = Dropdown(
+        self.randomize_all_button = Button(
             buttons_x + (button_width + button_spacing) * 4,
+            button_y,
+            button_width,
+            button_height,
+            "Randomize All",
+            self.randomize_all_mazes,
+            self.button_style
+        )
+        
+        self.app_theme_dropdown = Dropdown(
+            buttons_x + (button_width + button_spacing) * 5,
             button_y,
             button_width,
             button_height,
@@ -727,7 +737,8 @@ class MazeGame:
             self.button_style
         )
         
-        self.buttons = [self.generate_button, self.solve_button, self.reset_button, self.new_maze_button]
+        self.buttons = [self.generate_button, self.solve_button, self.reset_button, 
+                       self.new_maze_button, self.randomize_all_button]
         
         # Create initial maze component and generate first maze
         self.create_new_maze()
@@ -749,7 +760,7 @@ class MazeGame:
         """Create a new maze component with random algorithm and theme."""
         # Calculate position for new maze component
         x = MAZE_OFFSET_X
-        y = MAZE_OFFSET_Y + len(self.maze_components) * (MAZE_HEIGHT * CELL_SIZE + MAZE_SPACING)
+        y = MAZE_OFFSET_Y + len(self.maze_components) * (MAZE_HEIGHT * self.cell_size_slider.value + MAZE_SPACING)
         
         # Create new maze component
         new_component = MazeComponent(
@@ -757,7 +768,7 @@ class MazeGame:
             y,
             MAZE_WIDTH,
             MAZE_HEIGHT,
-            CELL_SIZE,
+            self.cell_size_slider.value,  # Use current cell size from slider
             self.button_style,
             self.maze_generator
         )
@@ -814,6 +825,19 @@ class MazeGame:
         
         # Update logo
         self.current_logo = self.logos[theme_name]
+    
+    def randomize_all_mazes(self):
+        """Randomize algorithm and theme for all maze components."""
+        import random
+        for component in self.maze_components:
+            # Randomly select new algorithm and theme
+            random_algorithm = random.choice(list(self.solvers.keys()))
+            random_theme = random.choice(self.animation_themes)
+            
+            # Update the component
+            component.algorithm_dropdown.selected = random_algorithm
+            component.animation_theme_dropdown.selected = random_theme
+            component.animation_theme.set_theme(random_theme.lower())
     
     def run(self):
         """Main game loop."""
