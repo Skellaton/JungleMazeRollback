@@ -244,7 +244,7 @@ class Dropdown:
         return None
 
 class MazeComponent:
-    def __init__(self, x, y, maze_width, maze_height, cell_size, button_style):
+    def __init__(self, x, y, maze_width, maze_height, cell_size, button_style, maze_generator):
         self.x = x
         self.y = y
         self.dragging = False
@@ -255,6 +255,7 @@ class MazeComponent:
         self.maze_width = maze_width
         self.maze_height = maze_height
         self.cell_size = cell_size
+        self.maze_generator = maze_generator  # Store reference to maze generator
         
         # Component dimensions
         button_width = 180
@@ -309,7 +310,6 @@ class MazeComponent:
         )
         
         # Initialize maze state
-        self.maze_generator = DFSMazeGenerator(maze_width, maze_height)
         self.maze = None
         self.solution = None
         self.solving = False
@@ -318,14 +318,12 @@ class MazeComponent:
         self.solver = None
         self.solver_generator = None
         
-        # Generate initial maze
-        self.generate_maze()
-        
         # Add z-index tracking
         self.dropdowns_open = False
     
-    def generate_maze(self):
-        self.maze = self.maze_generator.generate()
+    def set_maze(self, maze):
+        """Set the maze for this component."""
+        self.maze = maze
         self.solution = None
         self.solving = False
         self.current_cell = None
@@ -530,6 +528,10 @@ class MazeGame:
         # Initialize maze components list
         self.maze_components = []
         
+        # Initialize shared maze
+        self.shared_maze = None
+        self.maze_generator = DFSMazeGenerator(MAZE_WIDTH, MAZE_HEIGHT)
+        
         # Create buttons
         button_width = 180
         button_height = 40
@@ -542,8 +544,8 @@ class MazeGame:
             button_y,
             button_width,
             button_height,
-            "Generate All",
-            self.generate_all_mazes,
+            "Generate",
+            self.generate_maze,
             self.button_style
         )
         
@@ -552,18 +554,18 @@ class MazeGame:
             button_y,
             button_width,
             button_height,
-            "Solve All",
-            self.solve_all_mazes,
+            "Solve Maze",
+            self.solve_maze,
             self.button_style
         )
-
-        self.add_maze_button = Button(
+        
+        self.new_maze_button = Button(
             buttons_start_x + (WINDOW_WIDTH - buttons_start_x - button_width * 3 - button_spacing * 2) // 2 + (button_width + button_spacing) * 2,
             button_y,
             button_width,
             button_height,
-            "Add Maze",
-            self.add_maze,
+            "New Maze",
+            self.create_new_maze,
             self.button_style
         )
         
@@ -576,34 +578,47 @@ class MazeGame:
             self.button_style
         )
         
-        self.buttons = [self.generate_button, self.solve_button, self.add_maze_button]
+        self.buttons = [self.generate_button, self.solve_button, self.new_maze_button]
         
-        # Add initial maze
-        self.add_maze()
+        # Create initial maze component and generate first maze
+        self.create_new_maze()
+        self.generate_maze()  # Generate initial maze
     
-    def add_maze(self):
-        """Add a new maze component."""
-        # Calculate position for new maze
-        offset = len(self.maze_components) * 50  # Offset each new maze by 50 pixels
-        new_maze = MazeComponent(
-            MAZE_OFFSET_X + offset,
-            MAZE_OFFSET_Y + offset,
+    def generate_maze(self):
+        """Generate a new maze that will be shared across all components."""
+        self.shared_maze = self.maze_generator.generate()
+        # Update all components with the new maze
+        for component in self.maze_components:
+            component.set_maze(self.shared_maze)
+    
+    def create_new_maze(self):
+        """Create a new maze component."""
+        # Calculate position for new maze component
+        x = MAZE_OFFSET_X
+        y = MAZE_OFFSET_Y + len(self.maze_components) * (MAZE_HEIGHT * CELL_SIZE + MAZE_SPACING)
+        
+        # Create new maze component
+        new_component = MazeComponent(
+            x,
+            y,
             MAZE_WIDTH,
             MAZE_HEIGHT,
             CELL_SIZE,
-            self.button_style
+            self.button_style,
+            self.maze_generator  # Pass the maze generator
         )
-        self.maze_components.append(new_maze)
+        
+        # If there's a shared maze, set it for the new component
+        if self.shared_maze is not None:
+            new_component.set_maze(self.shared_maze)
+        
+        # Add to list of components
+        self.maze_components.append(new_component)
     
-    def generate_all_mazes(self):
-        """Generate all mazes."""
-        for maze in self.maze_components:
-            maze.generate_maze()
-    
-    def solve_all_mazes(self):
-        """Start solving all mazes."""
-        for maze in self.maze_components:
-            maze.start_solving(self.solvers[maze.algorithm_dropdown.selected])
+    def solve_maze(self):
+        """Solve the most recently created maze."""
+        if self.maze_components:
+            self.maze_components[-1].start_solving(self.solvers[self.maze_components[-1].algorithm_dropdown.selected])
     
     def change_app_theme(self, theme_name):
         """Change the current app theme and logo."""
@@ -613,10 +628,9 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
-        for maze in self.maze_components:
-            maze.algorithm_dropdown.style = self.button_style
-            maze.animation_theme_dropdown.style = self.button_style
-            maze.button_style = self.button_style
+        for component in self.maze_components:
+            component.algorithm_dropdown.style = self.button_style
+            component.animation_theme_dropdown.style = self.button_style
         self.current_logo = self.logos[theme_name]
     
     def run(self):
@@ -636,12 +650,13 @@ class MazeGame:
                     self.change_app_theme(selected_theme)
                 
                 # Handle maze component events
-                for i, maze in enumerate(self.maze_components[:]):  # Use slice copy to allow removal during iteration
-                    algorithm, animation_theme, close = maze.handle_event(event)
+                for i, component in enumerate(self.maze_components):
+                    algorithm, animation_theme, close = component.handle_event(event)
                     if animation_theme:
                         self.animation_theme.set_theme(animation_theme.lower())
                     if close == "close":
-                        self.maze_components.remove(maze)
+                        self.maze_components.pop(i)
+                        break
                 
                 # Handle button events
                 for button in self.buttons:
@@ -649,10 +664,10 @@ class MazeGame:
                     if action:
                         action()
             
-            # Update solving animation
-            for maze in self.maze_components:
-                if maze.solving:
-                    maze.update_solving()
+            # Update solving animation for all components
+            for component in self.maze_components:
+                if component.solving:
+                    component.update_solving()
             
             self.draw()
             self.clock.tick(FPS)
@@ -674,9 +689,9 @@ class MazeGame:
         # Draw app theme dropdown
         self.app_theme_dropdown.draw(self.screen)
         
-        # Draw maze components
-        for maze in self.maze_components:
-            maze.draw(self.screen, self.app_theme, self.animation_theme)
+        # Draw all maze components
+        for component in self.maze_components:
+            component.draw(self.screen, self.app_theme, self.animation_theme)
         
         pygame.display.flip()
 
