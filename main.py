@@ -112,8 +112,21 @@ class AnimationTheme:
                 }
             },
             "ocean": {
-                "current_cell": (0, 191, 255),    # Deep Sky Blue
-                "trail": (0, 105, 148)            # Dark Blue
+                "current_cell": (0, 255, 255),    # Bright Cyan
+                "trail": (0, 105, 148),           # Dark Blue
+                "ocean_colors": [
+                    (0, 191, 255),    # Deep Sky Blue
+                    (0, 255, 255),    # Cyan
+                    (0, 150, 255),    # Light Blue
+                    (0, 100, 255),    # Medium Blue
+                    (0, 50, 255),     # Dark Blue
+                    (0, 200, 255),    # Bright Sky Blue
+                    (0, 255, 200)     # Light Cyan
+                ],
+                "solution": {
+                    "base": (0, 0, 255),          # Blue
+                    "sparkle": None
+                }
             },
             "sunset": {
                 "current_cell": (255, 99, 71),    # Tomato Red
@@ -152,6 +165,7 @@ class AnimationTheme:
             self.current_theme = theme_name
             self.original_theme = theme_name  # Store the original theme
             self.flame_colors = theme.get("flame_colors", None)
+            self.ocean_colors = theme.get("ocean_colors", None)
             self.solution_colors = {}  # Reset solution colors when theme changes
             self.solution_sparkle = theme.get("solution", {}).get("sparkle", None)
             self.solution_base = theme.get("solution", {}).get("base", (0, 0, 255))
@@ -191,6 +205,18 @@ class AnimationTheme:
         if self.current_theme == "fire":
             if cell not in self.cell_colors:
                 self.cell_colors[cell] = self.random.choice(self.flame_colors)
+            return self.cell_colors[cell]
+        elif self.current_theme == "ocean":
+            current_time = pygame.time.get_ticks()
+            if current_time - self.flame_timer > self.FLAME_CHANGE_INTERVAL:
+                self.flame_timer = current_time
+                # Update colors for all cells
+                for c in self.cell_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color for more natural flickering
+                        self.cell_colors[c] = self.random.choice(self.ocean_colors)
+            
+            if cell not in self.cell_colors:
+                self.cell_colors[cell] = self.random.choice(self.ocean_colors)
             return self.cell_colors[cell]
         return self.get_trail_color()
     
