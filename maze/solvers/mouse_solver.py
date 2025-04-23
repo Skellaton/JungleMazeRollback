@@ -2,8 +2,8 @@ import random
 from typing import List, Tuple, Set
 from .base_solver import BaseMazeSolver
 
-class RandomMazeSolver(BaseMazeSolver):
-    """Maze solver using random movement."""
+class MouseMazeSolver(BaseMazeSolver):
+    """Maze solver using random movement like a mouse exploring."""
     
     def solve_step_by_step(self, start: Tuple[int, int], end: Tuple[int, int]):
         """Solve the maze using random movement, yielding each step for animation.
@@ -76,7 +76,7 @@ class RandomMazeSolver(BaseMazeSolver):
                 self.maze[new_y, new_x] == 0):
                 neighbors.append((new_x, new_y))
                 
-        return neighbors 
+        return neighbors
 
     def solve(self, start: Tuple[int, int], end: Tuple[int, int]) -> List[Tuple[int, int]]:
         """Solve the maze using random movement.

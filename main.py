@@ -2,7 +2,7 @@ import pygame
 import sys
 sys.setrecursionlimit(sys.getrecursionlimit() * 2)
 from maze.generators import DFSMazeGenerator
-from maze.solvers import AStarMazeSolver, BFSMazeSolver, RandomMazeSolver, DijkstraMazeSolver, DFSMazeSolver
+from maze.solvers import AStarMazeSolver, BFSMazeSolver, MouseMazeSolver, DijkstraMazeSolver, DFSMazeSolver
 
 # Initialize Pygame
 pygame.init()
@@ -551,7 +551,7 @@ class MazeComponent:
             y,
             button_width,
             button_height,
-            ["A*", "BFS", "DFS", "Dijkstra", "Random"],  # Added DFS and Dijkstra
+            ["A*", "BFS", "DFS", "Dijkstra", "Mouse"],  # Changed "Random" to "Mouse"
             button_style
         )
         
@@ -776,37 +776,6 @@ class MazeComponent:
         self.algorithm_dropdown.draw_options(screen)
         self.animation_theme_dropdown.draw_options(screen)
 
-class Scoreboard:
-    def __init__(self, x, y, width, height, theme):
-        self.rect = pygame.Rect(x, y, width, height)
-        self.scores = []  # List of (algorithm, time, theme) tuples
-        self.theme = theme
-        self.font = pygame.font.SysFont('consolas', 20)
-        self.max_entries = 5  # Maximum number of scores to display
-    
-    def add_score(self, algorithm, time, animation_theme):
-        """Add a new score to the scoreboard."""
-        self.scores.append((algorithm, time, animation_theme))
-        # Sort by time (ascending)
-        self.scores.sort(key=lambda x: x[1])
-        # Keep only the best scores
-        if len(self.scores) > self.max_entries:
-            self.scores = self.scores[:self.max_entries]
-    
-    def clear(self):
-        """Clear all scores from the scoreboard."""
-        self.scores = []
-    
-    def draw(self, screen):
-        """Draw the scoreboard."""
-        # Draw scores
-        y_offset = 0  # Start from top since we removed the title
-        for algorithm, time, theme in self.scores:
-            # Create text with algorithm and time
-            text = f"{algorithm}: {time:.2f}s"
-            text_surface = self.font.render(text, True, theme.current_cell)
-            screen.blit(text_surface, (self.rect.x, self.rect.y + y_offset))
-            y_offset += 25
 
 class MazeGame:
     def __init__(self):
@@ -835,7 +804,7 @@ class MazeGame:
             "BFS": BFSMazeSolver,
             "DFS": DFSMazeSolver,  # Added DFS
             "Dijkstra": DijkstraMazeSolver,  # Added Dijkstra
-            "Random": RandomMazeSolver
+            "Mouse": MouseMazeSolver
         }
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
         
@@ -978,6 +947,9 @@ class MazeGame:
         # Get start and end positions
         self.start_pos, self.end_pos = self.maze_generator.get_start_end_points()
         
+        # Reset solved mazes list
+        self.solved_mazes = []
+        
         # Update all components with the new maze and positions
         for component in self.maze_components:
             component.set_maze(self.shared_maze, self.start_pos, self.end_pos)
@@ -1023,6 +995,12 @@ class MazeGame:
     
     def solve_maze(self):
         """Solve all maze components simultaneously."""
+        # Reset all mazes and clear solved list
+        self.solved_mazes = []
+        for component in self.maze_components:
+            component.reset_solving()
+        
+        # Start solving all mazes
         for component in self.maze_components:
             component.start_solving(self.solvers[component.algorithm_dropdown.selected])
     
@@ -1060,6 +1038,9 @@ class MazeGame:
     def randomize_all_mazes(self):
         """Randomize algorithm and theme for all maze components and reset any running mazes."""
         import random
+        
+        # Reset solved mazes list
+        self.solved_mazes = []
         
         # Get lists of available algorithms and themes
         available_algorithms = list(self.solvers.keys())
