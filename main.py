@@ -1,5 +1,6 @@
 import pygame
 import sys
+sys.setrecursionlimit(sys.getrecursionlimit() * 2)
 from maze.generators import DFSMazeGenerator
 from maze.solvers import AStarMazeSolver, BFSMazeSolver, RandomMazeSolver, DijkstraMazeSolver, DFSMazeSolver
 
@@ -24,7 +25,7 @@ FPS = 60
 class AnimationTheme:
     """Class to define animation color themes."""
     
-    def __init__(self, theme_name="default"):
+    def __init__(self, theme_name="matrix"):
         self.themes = {
             "default": {
                 "current_cell": (255, 215, 0),    # Gold
@@ -43,9 +44,16 @@ class AnimationTheme:
                 }
             },
             "fire": {
-                "current_cell": (255, 69, 0),     # Red-Orange
-                "trail": (255, 140, 0),           # Dark Orange
+                "current_cell": (255, 0, 0),      # Bright Red
+                "trail": (50, 0, 0),              # Very Dark Red
                 "flame_colors": [
+                    (20, 0, 0),     # Very Dark Red
+                    (30, 0, 0),     # Dark Red
+                    (40, 0, 0),     # Slightly Lighter Dark Red
+                    (25, 0, 0),     # Medium Dark Red
+                    (35, 0, 0),     # Another Dark Red
+                    (45, 0, 0),     # Lighter Dark Red
+                    (15, 0, 0),     # Darkest Red
                     (255, 69, 0),   # Red-Orange
                     (255, 140, 0),  # Dark Orange
                     (255, 165, 0),  # Orange
@@ -112,16 +120,16 @@ class AnimationTheme:
                 }
             },
             "ocean": {
-                "current_cell": (0, 255, 255),    # Bright Cyan
-                "trail": (0, 105, 148),           # Dark Blue
+                "current_cell": (0, 0, 255),      # Bright Blue
+                "trail": (0, 0, 50),              # Very Dark Blue
                 "ocean_colors": [
-                    (0, 191, 255),    # Deep Sky Blue
-                    (0, 255, 255),    # Cyan
-                    (0, 150, 255),    # Light Blue
-                    (0, 100, 255),    # Medium Blue
-                    (0, 50, 255),     # Dark Blue
-                    (0, 200, 255),    # Bright Sky Blue
-                    (0, 255, 200)     # Light Cyan
+                    (0, 0, 20),     # Very Dark Blue
+                    (0, 0, 30),     # Dark Blue
+                    (0, 0, 40),     # Slightly Lighter Dark Blue
+                    (0, 0, 25),     # Medium Dark Blue
+                    (0, 0, 35),     # Another Dark Blue
+                    (0, 0, 45),     # Lighter Dark Blue
+                    (0, 0, 15)      # Darkest Blue
                 ],
                 "solution": {
                     "base": (0, 0, 255),          # Blue
@@ -134,7 +142,20 @@ class AnimationTheme:
             },
             "matrix": {
                 "current_cell": (0, 255, 0),      # Bright Green
-                "trail": (0, 100, 0)              # Dark Green
+                "trail": (0, 50, 0),              # Very Dark Green
+                "matrix_colors": [
+                    (0, 20, 0),     # Very Dark Green
+                    (0, 30, 0),     # Dark Green
+                    (0, 40, 0),     # Slightly Lighter Dark Green
+                    (0, 25, 0),     # Medium Dark Green
+                    (0, 35, 0),     # Another Dark Green
+                    (0, 45, 0),     # Lighter Dark Green
+                    (0, 15, 0)      # Darkest Green
+                ],
+                "solution": {
+                    "base": (0, 0, 255),          # Blue
+                    "sparkle": None
+                }
             },
             "candy": {
                 "current_cell": (255, 105, 180),  # Hot Pink
@@ -166,6 +187,7 @@ class AnimationTheme:
             self.original_theme = theme_name  # Store the original theme
             self.flame_colors = theme.get("flame_colors", None)
             self.ocean_colors = theme.get("ocean_colors", None)
+            self.matrix_colors = theme.get("matrix_colors", None)
             self.solution_colors = {}  # Reset solution colors when theme changes
             self.solution_sparkle = theme.get("solution", {}).get("sparkle", None)
             self.solution_base = theme.get("solution", {}).get("base", (0, 0, 255))
@@ -218,6 +240,18 @@ class AnimationTheme:
             if cell not in self.cell_colors:
                 self.cell_colors[cell] = self.random.choice(self.ocean_colors)
             return self.cell_colors[cell]
+        elif self.current_theme == "matrix":
+            current_time = pygame.time.get_ticks()
+            if current_time - self.flame_timer > self.FLAME_CHANGE_INTERVAL:
+                self.flame_timer = current_time
+                # Update colors for all cells
+                for c in self.cell_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color for more natural flickering
+                        self.cell_colors[c] = self.random.choice(self.matrix_colors)
+            
+            if cell not in self.cell_colors:
+                self.cell_colors[cell] = self.random.choice(self.matrix_colors)
+            return self.cell_colors[cell]
         return self.get_trail_color()
     
     def get_solution_color(self, cell):
@@ -257,10 +291,10 @@ class Theme:
             },
             "dark": {
                 "background": (0, 0, 0),        # Black
-                "text": (255, 255, 255),       # White
+                "text": (200, 200, 200),       # Light gray
                 "border": (0, 0, 0),           # Black
-                "accent": (50, 50, 50),        # Dark gray
-                "button_hover": (70, 70, 70)
+                "accent": (40, 40, 40),        # Brighter dark gray
+                "button_hover": (60, 60, 60)   # Even brighter gray for hover
             }
         }
         self.set_theme(theme_name)
@@ -476,7 +510,7 @@ class MazeComponent:
         self.maze_generator = maze_generator
         
         # Create own animation theme instance
-        self.animation_theme = AnimationTheme()
+        self.animation_theme = AnimationTheme("matrix")
         
         # Component dimensions
         button_width = 180
