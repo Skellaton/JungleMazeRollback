@@ -175,3 +175,166 @@ class Slider:
     def update_style(self, new_style):
         """Update the slider's style."""
         self.style = new_style 
+
+class MazeNodes:
+    def __init__(self, x, y, maze_width, maze_height, cell_size, button_style, maze, parent_component):
+        self.x = x
+        self.y = y
+        self.dragging = False
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
+        
+        # Parent component reference for linked movement
+        self.parent_component = parent_component
+        self.is_locked = False
+        
+        # Store initial relative position to parent
+        self.relative_x = x - parent_component.x
+        self.relative_y = y - parent_component.y
+        
+        # Maze properties
+        self.maze_width = maze_width
+        self.maze_height = maze_height
+        self.cell_size = cell_size
+        self.maze = maze
+        
+        # Component dimensions
+        self.button_width = 40  # Width of buttons
+        self.width = maze_width * cell_size
+        self.height = maze_height * cell_size + self.button_width
+        
+        # Close button properties
+        self.close_button_rect = pygame.Rect(
+            x,  # Start at component's x
+            y,  # Start at component's y
+            self.button_width,
+            self.button_width
+        )
+        self.close_button_hovered = False
+        
+        # Lock button properties
+        self.lock_button_rect = pygame.Rect(
+            x + self.button_width,  # Position after close button
+            y,
+            self.button_width,
+            self.button_width
+        )
+        self.lock_button_hovered = False
+        self.button_style = button_style
+        
+    def handle_event(self, event):
+        # Handle close and lock buttons
+        if event.type == pygame.MOUSEMOTION:
+            self.close_button_hovered = self.close_button_rect.collidepoint(event.pos)
+            self.lock_button_hovered = self.lock_button_rect.collidepoint(event.pos)
+        
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                if self.close_button_rect.collidepoint(event.pos):
+                    return "close"
+                elif self.lock_button_rect.collidepoint(event.pos):
+                    self.is_locked = not self.is_locked
+                    # Update relative position when locking
+                    if self.is_locked:
+                        self.relative_x = self.x - self.parent_component.x
+                        self.relative_y = self.y - self.parent_component.y
+                    return None
+                
+                mouse_x, mouse_y = event.pos
+                # Check if click is in the component but not in the buttons
+                if (self.x <= mouse_x <= self.x + self.width and 
+                    self.y + self.button_width <= mouse_y <= self.y + self.height):
+                    self.dragging = True
+                    self.drag_offset_x = mouse_x - self.x
+                    self.drag_offset_y = mouse_y - self.y
+        
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:  # Left click
+                self.dragging = False
+        
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                mouse_x, mouse_y = event.pos
+                new_x = mouse_x - self.drag_offset_x
+                new_y = mouse_y - self.drag_offset_y
+                self.move_to(new_x, new_y)
+        
+        return None
+    
+    def move_to(self, new_x, new_y):
+        """Move the component to a new position and update all related positions."""
+        self.x = new_x
+        self.y = new_y
+        # Update button positions
+        self.close_button_rect.x = self.x
+        self.close_button_rect.y = self.y
+        self.lock_button_rect.x = self.x + self.button_width
+        self.lock_button_rect.y = self.y
+        
+        # If locked, move parent component
+        if self.is_locked:
+            parent_new_x = self.x - self.relative_x
+            parent_new_y = self.y - self.relative_y
+            self.parent_component.move_to(parent_new_x, parent_new_y)
+    
+    def update_position_from_parent(self):
+        """Update position based on parent's movement when locked."""
+        if self.is_locked:
+            new_x = self.parent_component.x + self.relative_x
+            new_y = self.parent_component.y + self.relative_y
+            self.move_to(new_x, new_y)
+    
+    def draw(self, screen, app_theme):
+        # Draw background for the entire component
+        component_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(screen, app_theme.accent, component_rect)
+        pygame.draw.rect(screen, app_theme.border, component_rect, 2)
+        
+        # Draw close button
+        color = self.button_style.hover_color if self.close_button_hovered else self.button_style.background_color
+        pygame.draw.rect(screen, color, self.close_button_rect)
+        pygame.draw.rect(screen, self.button_style.border_color, self.close_button_rect, self.button_style.border_width)
+        
+        # Draw X symbol
+        x_margin = 12
+        x_color = self.button_style.text_color
+        pygame.draw.line(screen, x_color, 
+                        (self.close_button_rect.left + x_margin, self.close_button_rect.centery - x_margin + 2),
+                        (self.close_button_rect.right - x_margin, self.close_button_rect.centery + x_margin - 2), 2)
+        pygame.draw.line(screen, x_color,
+                        (self.close_button_rect.left + x_margin, self.close_button_rect.centery + x_margin - 2),
+                        (self.close_button_rect.right - x_margin, self.close_button_rect.centery - x_margin + 2), 2)
+        
+        # Draw lock button
+        color = self.button_style.hover_color if self.lock_button_hovered else self.button_style.background_color
+        if self.is_locked:
+            color = self.button_style.hover_color  # Keep highlighted when locked
+        pygame.draw.rect(screen, color, self.lock_button_rect)
+        pygame.draw.rect(screen, self.button_style.border_color, self.lock_button_rect, self.button_style.border_width)
+        
+        # Draw lock symbol
+        lock_margin = 10
+        lock_color = self.button_style.text_color
+        # Draw lock body
+        lock_body = pygame.Rect(
+            self.lock_button_rect.centerx - 8,
+            self.lock_button_rect.centery - 2,
+            16,
+            14
+        )
+        pygame.draw.rect(screen, lock_color, lock_body, 2)
+        # Draw lock shackle
+        if self.is_locked:
+            # Closed shackle
+            pygame.draw.arc(screen, lock_color,
+                          [self.lock_button_rect.centerx - 8,
+                           self.lock_button_rect.centery - 12,
+                           16, 16],
+                          0, 3.14, 2)
+        else:
+            # Open shackle
+            pygame.draw.arc(screen, lock_color,
+                          [self.lock_button_rect.centerx - 4,
+                           self.lock_button_rect.centery - 12,
+                           16, 16],
+                          -3.14/2, 3.14/2, 2) 

@@ -3,7 +3,7 @@ import sys
 sys.setrecursionlimit(sys.getrecursionlimit() * 2)
 from maze.generators import DFSMazeGenerator
 from maze.solvers import AStarMazeSolver, BFSMazeSolver, MouseMazeSolver, DijkstraMazeSolver, DFSMazeSolver
-from ui_components import ButtonStyle, Button, Dropdown, Slider
+from ui_components.components import ButtonStyle, Button, Dropdown, Slider, MazeNodes
 
 # Initialize Pygame
 pygame.init()
@@ -345,7 +345,7 @@ class MazeComponent:
         self.timer_width = 120  # Width of timer box
         self.width = max(maze_width * cell_size, 
                         self.close_button_width + button_spacing + 
-                        button_width * 2 + button_spacing * 2 +
+                        button_width * 3 + button_spacing * 3 +
                         self.timer_width)
         self.height = maze_height * cell_size + button_height * 2 + button_spacing * 2
         
@@ -354,7 +354,7 @@ class MazeComponent:
         self.elapsed_time = 0
         self.timer_font = pygame.font.SysFont('consolas', 24)
         self.timer_rect = pygame.Rect(
-            x + self.close_button_width + button_spacing + button_width * 2 + button_spacing * 2,
+            x + self.close_button_width + button_spacing + button_width * 3 + button_spacing * 3,
             y,
             self.timer_width,
             button_height
@@ -370,13 +370,13 @@ class MazeComponent:
         self.close_button_hovered = False
         self.button_style = button_style
         
-        # Create dropdowns
+        # Create dropdowns and nodes button
         self.algorithm_dropdown = Dropdown(
             x + self.close_button_width + button_spacing,  # Position after close button
             y,
             button_width,
             button_height,
-            ["A*", "BFS", "DFS", "Dijkstra", "Mouse"],  # Changed "Random" to "Mouse"
+            ["A*", "BFS", "DFS", "Dijkstra", "Mouse"],
             button_style
         )
         
@@ -386,6 +386,16 @@ class MazeComponent:
             button_width,
             button_height,
             ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"],
+            button_style
+        )
+        
+        self.nodes_button = Button(
+            x + self.close_button_width + button_spacing + button_width * 2 + button_spacing * 2,  # Position after animation theme dropdown
+            y,
+            button_width,
+            button_height,
+            "Nodes",
+            self.show_nodes,
             button_style
         )
         
@@ -402,60 +412,85 @@ class MazeComponent:
         
         # Add z-index tracking
         self.dropdowns_open = False
+        
+        # Nodes component
+        self.nodes_component = None
     
-    def set_maze(self, maze, start_pos, end_pos):
-        """Set the maze for this component."""
-        self.maze = maze
-        self.start_pos = start_pos
-        self.end_pos = end_pos
-        self.solution = None
-        self.solving = False
-        self.current_cell = None
-        self.explored_cells = set()
-        self.elapsed_time = 0
-    
-    def start_solving(self, solver_class):
-        if self.maze is not None and not self.solving and self.start_pos is not None and self.end_pos is not None:
-            self.solving = True
-            self.solution = None
-            self.current_cell = None
-            self.explored_cells = set()
-            self.start_time = pygame.time.get_ticks()
-            self.elapsed_time = 0
-            self.solver = solver_class(self.maze)
-            self.solver_generator = self.solver.solve_step_by_step(self.start_pos, self.end_pos)
-    
-    def update_solving(self):
-        if self.solving:
-            # Update elapsed time
-            current_time = pygame.time.get_ticks()
-            self.elapsed_time = (current_time - self.start_time) / 1000  # Convert to seconds
+    def move_to(self, new_x, new_y):
+        """Move the component to a new position and update all related positions."""
+        try:
+            # Calculate the offset from the old position
+            dx = new_x - self.x
+            dy = new_y - self.y
             
-            try:
-                result = next(self.solver_generator)
-                if isinstance(result, tuple):
-                    self.current_cell = result
-                    self.explored_cells.add(result)
-                elif isinstance(result, list):
-                    self.solution = result
-                    self.solving = False
-            except StopIteration:
-                self.solving = False
+            # Update main component position
+            self.x = new_x
+            self.y = new_y
+            
+            # Update all component positions using the offset
+            if hasattr(self, 'close_button_rect'):
+                self.close_button_rect.x += dx
+                self.close_button_rect.y += dy
+            
+            if hasattr(self, 'algorithm_dropdown'):
+                self.algorithm_dropdown.rect.x += dx
+                self.algorithm_dropdown.rect.y += dy
+                
+                # Update dropdown option positions if they're open
+                if self.algorithm_dropdown.is_open and hasattr(self.algorithm_dropdown, 'option_rects'):
+                    for rect in self.algorithm_dropdown.option_rects:
+                        rect.x += dx
+                        rect.y += dy
+            
+            if hasattr(self, 'animation_theme_dropdown'):
+                self.animation_theme_dropdown.rect.x += dx
+                self.animation_theme_dropdown.rect.y += dy
+                
+                # Update dropdown option positions if they're open
+                if self.animation_theme_dropdown.is_open and hasattr(self.animation_theme_dropdown, 'option_rects'):
+                    for rect in self.animation_theme_dropdown.option_rects:
+                        rect.x += dx
+                        rect.y += dy
+            
+            if hasattr(self, 'nodes_button'):
+                self.nodes_button.rect.x += dx
+                self.nodes_button.rect.y += dy
+            
+            if hasattr(self, 'timer_rect'):
+                self.timer_rect.x += dx
+                self.timer_rect.y += dy
+            
+            # Update nodes component position if it exists and is locked
+            if hasattr(self, 'nodes_component') and self.nodes_component is not None:
+                if hasattr(self.nodes_component, 'is_locked') and self.nodes_component.is_locked:
+                    self.nodes_component.update_position_from_parent()
+        except Exception as e:
+            print(f"Error in move_to: {e}")  # Print error for debugging
+            # Don't crash, just return
+            return
     
-    def reset_solving(self):
-        """Reset the solving animation state."""
-        self.solution = None
-        self.solving = False
-        self.current_cell = None
-        self.explored_cells = set()
-        self.solver = None
-        self.solver_generator = None
-        self.elapsed_time = 0
-    
+    def show_nodes(self):
+        """Create and show the nodes visualization component."""
+        if self.maze is not None:
+            # Calculate position for nodes component (slightly offset from main component)
+            nodes_x = self.x + self.width + 20
+            nodes_y = self.y
+            self.nodes_component = MazeNodes(
+                nodes_x,
+                nodes_y,
+                self.maze_width,
+                self.maze_height,
+                self.cell_size,
+                self.button_style,
+                self.maze,
+                self  # Pass self as parent component
+            )
+        
     def handle_event(self, event):
-        # Handle dropdowns
+        # Handle dropdowns and nodes button
         algorithm = self.algorithm_dropdown.handle_event(event)
         animation_theme = self.animation_theme_dropdown.handle_event(event)
+        nodes_action = self.nodes_button.handle_event(event)
         
         # Update z-index tracking
         self.dropdowns_open = self.algorithm_dropdown.is_open or self.animation_theme_dropdown.is_open
@@ -463,7 +498,7 @@ class MazeComponent:
         # Handle close button
         if event.type == pygame.MOUSEMOTION:
             self.close_button_hovered = self.close_button_rect.collidepoint(event.pos)
-        
+            
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left click
                 if self.close_button_rect.collidepoint(event.pos):
@@ -485,25 +520,21 @@ class MazeComponent:
         elif event.type == pygame.MOUSEMOTION:
             if self.dragging:
                 mouse_x, mouse_y = event.pos
-                self.x = mouse_x - self.drag_offset_x
-                self.y = mouse_y - self.drag_offset_y
-                # Update positions
-                self.close_button_rect.x = self.x
-                self.close_button_rect.y = self.y
-                self.algorithm_dropdown.rect.x = self.x + self.close_button_width + 10
-                self.algorithm_dropdown.rect.y = self.y
-                self.animation_theme_dropdown.rect.x = self.x + self.close_button_width + 10 + 180 + 10
-                self.animation_theme_dropdown.rect.y = self.y
-                self.timer_rect.x = self.x + self.close_button_width + 10 + 180 * 2 + 20
-                self.timer_rect.y = self.y
+                new_x = mouse_x - self.drag_offset_x
+                new_y = mouse_y - self.drag_offset_y
+                self.move_to(new_x, new_y)
         
         # Apply theme change if needed
         if animation_theme:
             self.animation_theme.set_theme(animation_theme.lower())
         
+        # Handle nodes button
+        if nodes_action:
+            nodes_action()
+        
         return algorithm, animation_theme, None
     
-    def draw(self, screen, app_theme, _):
+    def draw(self, screen, app_theme, _, event=None):
         """Draw the maze component. The third parameter is ignored since we use our own animation theme."""
         # Draw background for the entire component
         component_rect = pygame.Rect(self.x, self.y, self.width, self.height)
@@ -525,9 +556,10 @@ class MazeComponent:
                         (self.close_button_rect.left + x_margin, self.close_button_rect.centery + x_margin - 2),
                         (self.close_button_rect.right - x_margin, self.close_button_rect.centery - x_margin + 2), 2)
         
-        # Draw dropdowns
+        # Draw dropdowns and nodes button
         self.algorithm_dropdown.draw(screen)
         self.animation_theme_dropdown.draw(screen)
+        self.nodes_button.draw(screen)
         
         # Draw timer box
         pygame.draw.rect(screen, self.button_style.background_color, self.timer_rect)
@@ -600,7 +632,63 @@ class MazeComponent:
         # Draw dropdown options on top of everything
         self.algorithm_dropdown.draw_options(screen)
         self.animation_theme_dropdown.draw_options(screen)
+        
+        # Draw nodes component if it exists
+        if self.nodes_component:
+            self.nodes_component.draw(screen, app_theme)
+            if event:
+                result = self.nodes_component.handle_event(event)
+                if result == "close":
+                    self.nodes_component = None
 
+    def set_maze(self, maze, start_pos, end_pos):
+        """Set the maze for this component."""
+        self.maze = maze
+        self.start_pos = start_pos
+        self.end_pos = end_pos
+        self.solution = None
+        self.solving = False
+        self.current_cell = None
+        self.explored_cells = set()
+        self.elapsed_time = 0
+    
+    def start_solving(self, solver_class):
+        if self.maze is not None and not self.solving and self.start_pos is not None and self.end_pos is not None:
+            self.solving = True
+            self.solution = None
+            self.current_cell = None
+            self.explored_cells = set()
+            self.start_time = pygame.time.get_ticks()
+            self.elapsed_time = 0
+            self.solver = solver_class(self.maze)
+            self.solver_generator = self.solver.solve_step_by_step(self.start_pos, self.end_pos)
+    
+    def update_solving(self):
+        if self.solving:
+            # Update elapsed time
+            current_time = pygame.time.get_ticks()
+            self.elapsed_time = (current_time - self.start_time) / 1000  # Convert to seconds
+            
+            try:
+                result = next(self.solver_generator)
+                if isinstance(result, tuple):
+                    self.current_cell = result
+                    self.explored_cells.add(result)
+                elif isinstance(result, list):
+                    self.solution = result
+                    self.solving = False
+            except StopIteration:
+                self.solving = False
+    
+    def reset_solving(self):
+        """Reset the solving animation state."""
+        self.solution = None
+        self.solving = False
+        self.current_cell = None
+        self.explored_cells = set()
+        self.solver = None
+        self.solver_generator = None
+        self.elapsed_time = 0
 
 class MazeGame:
     def __init__(self):
@@ -856,6 +944,10 @@ class MazeGame:
             component.button_style = self.button_style
             component.algorithm_dropdown.style = self.button_style
             component.animation_theme_dropdown.style = self.button_style
+            component.nodes_button.style = self.button_style  # Update nodes button style
+            # Update nodes component if it exists
+            if component.nodes_component:
+                component.nodes_component.button_style = self.button_style
         
         # Update logo
         self.current_logo = self.logos[theme_name]
@@ -929,7 +1021,9 @@ class MazeGame:
         """Main game loop."""
         running = True
         while running:
+            current_event = None
             for event in pygame.event.get():
+                current_event = event
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
@@ -966,12 +1060,12 @@ class MazeGame:
             # Update solving animation and check for completed mazes
             self.update_solving()
             
-            self.draw()
+            self.draw(current_event)
             self.clock.tick(FPS)
         
         pygame.quit()
         sys.exit()
-    
+        
     def update_maze_dimensions(self):
         """Update maze dimensions and regenerate if needed."""
         new_width = self.width_slider.value
@@ -994,7 +1088,7 @@ class MazeGame:
         # Regenerate maze with new dimensions
         self.generate_maze()
     
-    def draw(self):
+    def draw(self, event=None):
         """Draw the game screen."""
         self.screen.fill(self.app_theme.background)
         
@@ -1016,7 +1110,7 @@ class MazeGame:
         
         # Draw all maze components
         for component in self.maze_components:
-            component.draw(self.screen, self.app_theme, None)
+            component.draw(self.screen, self.app_theme, None, event)
         
         pygame.display.flip()
 
