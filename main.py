@@ -740,17 +740,19 @@ class MazeGame:
         self.start_pos = None
         self.end_pos = None
         
+        # Add pause state
+        self.is_paused = False
+        
         # Create buttons and sliders
         button_width = 180
         button_height = 40
-        button_spacing = 20
-        button_y = 20
+        button_spacing = 10
         
         # Calculate positions for sliders and buttons
         slider_width = 200
         slider_height = 10
         slider_spacing = 40
-        slider_y = button_y + (button_height - slider_height) // 2  # Center vertically with buttons
+        slider_y = 20
         
         # Position sliders to the left of buttons
         slider_x = 250
@@ -763,7 +765,7 @@ class MazeGame:
             slider_width,
             slider_height,
             5,  # min width
-            90,  # max width (capped at 90)
+            90,  # max width
             MAZE_WIDTH,  # initial width
             "Width",
             self.button_style
@@ -775,13 +777,12 @@ class MazeGame:
             slider_width,
             slider_height,
             5,  # min height
-            50,  # max height (increased from 30 to 50)
+            50,  # max height
             MAZE_HEIGHT,  # initial height
             "Height",
             self.button_style
         )
         
-        # Add cell size slider
         self.cell_size_slider = Slider(
             slider_x,
             slider_y + slider_spacing * 2,
@@ -789,7 +790,7 @@ class MazeGame:
             slider_height,
             10,  # min cell size
             30,  # max cell size
-            10,  # initial cell size (changed from CELL_SIZE to 10)
+            10,  # initial cell size
             "Cell Size",
             self.button_style
         )
@@ -797,7 +798,7 @@ class MazeGame:
         # Create maze generator dropdown
         self.generator_dropdown = Dropdown(
             buttons_x,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             list(self.generators.keys()),
@@ -807,7 +808,7 @@ class MazeGame:
         # Create buttons
         self.generate_button = Button(
             buttons_x + button_width + button_spacing,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             "Generate",
@@ -817,7 +818,7 @@ class MazeGame:
         
         self.solve_button = Button(
             buttons_x + (button_width + button_spacing) * 2,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             "Solve Maze",
@@ -827,7 +828,7 @@ class MazeGame:
         
         self.reset_button = Button(
             buttons_x + (button_width + button_spacing) * 3,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             "Reset",
@@ -835,9 +836,20 @@ class MazeGame:
             self.button_style
         )
         
+        # Add pause button under reset button
+        self.pause_button = Button(
+            buttons_x + (button_width + button_spacing) * 3,  # Same x as reset button
+            slider_y + button_height + 5,  # Position below reset button with small gap
+            button_width,
+            button_height,
+            "Pause",
+            self.toggle_pause,
+            self.button_style
+        )
+        
         self.new_maze_button = Button(
             buttons_x + (button_width + button_spacing) * 4,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             "New Maze",
@@ -847,7 +859,7 @@ class MazeGame:
         
         self.randomize_all_button = Button(
             buttons_x + (button_width + button_spacing) * 5,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             "Random",
@@ -857,15 +869,22 @@ class MazeGame:
         
         self.app_theme_dropdown = Dropdown(
             buttons_x + (button_width + button_spacing) * 6,
-            button_y,
+            slider_y,
             button_width,
             button_height,
             ["Jungle", "Dark Jungle", "Dark"],
             self.button_style
         )
         
-        self.buttons = [self.generate_button, self.solve_button, self.reset_button, 
-                       self.new_maze_button, self.randomize_all_button]
+        # Create buttons list with all buttons
+        self.buttons = [
+            self.generate_button,
+            self.solve_button,
+            self.reset_button,
+            self.pause_button,
+            self.new_maze_button,
+            self.randomize_all_button
+        ]
         
         # Track solved mazes
         self.solved_mazes = []
@@ -1016,8 +1035,17 @@ class MazeGame:
             component.animation_theme_dropdown.selected = theme
             component.animation_theme.set_theme(theme.lower())
     
+    def toggle_pause(self):
+        """Toggle the pause state and update the button text."""
+        self.is_paused = not self.is_paused
+        self.pause_button.text = "Resume" if self.is_paused else "Pause"
+    
     def update_solving(self):
         """Update solving animation for all components and check for completed mazes."""
+        # Skip updates if paused
+        if self.is_paused:
+            return
+            
         # First, check for newly solved mazes
         for component in self.maze_components:
             if component.solving:
