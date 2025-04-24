@@ -1,7 +1,7 @@
 import pygame
 import sys
 sys.setrecursionlimit(sys.getrecursionlimit() * 2)
-from maze.generators import DFSMazeGenerator
+from maze.generators import DFSMazeGenerator, PrimsMazeGenerator, BinaryTreeGenerator, RecursiveDivisionGenerator
 from maze.solvers import AStarMazeSolver, BFSMazeSolver, MouseMazeSolver, DijkstraMazeSolver, DFSMazeSolver
 from ui_components.components import ButtonStyle, Button, Dropdown, Slider, MazeNodes
 
@@ -722,7 +722,10 @@ class MazeGame:
         
         # Initialize maze generators
         self.generators = {
-            "DFS": DFSMazeGenerator
+            "DFS": DFSMazeGenerator,
+            "Prim's": PrimsMazeGenerator,
+            "Binary Tree": BinaryTreeGenerator,
+            "Recursive Division": RecursiveDivisionGenerator
         }
         
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
@@ -1100,18 +1103,30 @@ class MazeGame:
         new_height = self.height_slider.value
         new_cell_size = self.cell_size_slider.value
         
+        # Update MAZE_WIDTH and MAZE_HEIGHT constants
+        global MAZE_WIDTH, MAZE_HEIGHT
+        MAZE_WIDTH = new_width
+        MAZE_HEIGHT = new_height
+        
+        # Get the selected generator class
+        generator_name = self.generator_dropdown.selected
+        generator_class = self.generators.get(generator_name, DFSMazeGenerator)
+        
         # Update maze generator with new dimensions
-        self.maze_generator = DFSMazeGenerator(new_width, new_height)
+        self.maze_generator = generator_class(new_width, new_height)
         
         # Update cell size for all components
         for component in self.maze_components:
             component.cell_size = new_cell_size
+            component.maze_width = new_width
+            component.maze_height = new_height
+            
             # Recalculate component dimensions based on new cell size
-            component.width = max(component.maze_width * new_cell_size, 
+            component.width = max(new_width * new_cell_size, 
                                 component.close_button_width + 10 + 
                                 180 * 2 + 20 +
                                 component.timer_width)
-            component.height = component.maze_height * new_cell_size + 40 * 2 + 10 * 2
+            component.height = new_height * new_cell_size + 40 * 2 + 10 * 2
         
         # Regenerate maze with new dimensions
         self.generate_maze()
