@@ -1,7 +1,7 @@
 import pygame
 import sys
 sys.setrecursionlimit(sys.getrecursionlimit() * 2)
-from maze.generators import DFSMazeGenerator, PrimsMazeGenerator, BinaryTreeGenerator, RecursiveDivisionGenerator
+from maze.generators import DFSMazeGenerator, PrimsMazeGenerator, BinaryTreeGenerator, RecursiveDivisionGenerator, OpenSpaceGenerator
 from maze.solvers import AStarMazeSolver, BFSMazeSolver, MouseMazeSolver, DijkstraMazeSolver, DFSMazeSolver
 from ui_components.components import ButtonStyle, Button, Dropdown, Slider, MazeNodes
 
@@ -725,7 +725,8 @@ class MazeGame:
             "DFS": DFSMazeGenerator,
             "Prim's": PrimsMazeGenerator,
             "Binary Tree": BinaryTreeGenerator,
-            "Recursive Division": RecursiveDivisionGenerator
+            "Recursive Division": RecursiveDivisionGenerator,
+            "Open Space": OpenSpaceGenerator
         }
         
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
