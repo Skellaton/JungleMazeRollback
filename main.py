@@ -64,8 +64,16 @@ class AnimationTheme:
                     (255, 180, 0)   # Light Orange
                 ],
                 "solution": {
-                    "base": (0, 0, 255),          # Blue
-                    "sparkle": None
+                    "base": (255, 0, 0),          # Red
+                    "sparkle": [
+                        (255, 69, 0),    # Red-Orange
+                        (255, 140, 0),   # Dark Orange
+                        (255, 165, 0),   # Orange
+                        (255, 215, 0),   # Gold
+                        (255, 99, 71),   # Tomato Red
+                        (255, 50, 0),    # Bright Red
+                        (255, 180, 0)    # Light Orange
+                    ]
                 }
             },
             "gold": {
@@ -165,6 +173,54 @@ class AnimationTheme:
             "rainbow": {
                 "current_cell": (148, 0, 211),    # Purple
                 "trail": None                     # Will be random rainbow colors
+            },
+            "lava": {
+                "current_cell": (255, 100, 0),      # Brighter Orange-Red
+                "trail": (20, 0, 0),                # Much Darker Red
+                "lava_colors": [
+                    (20, 0, 0),     # Very Dark Red
+                    (30, 0, 0),     # Dark Red
+                    (40, 0, 0),     # Slightly Lighter Dark Red
+                    (25, 0, 0),     # Medium Dark Red
+                    (35, 0, 0),     # Another Dark Red
+                    (45, 0, 0),     # Lighter Dark Red
+                    (15, 0, 0),     # Darkest Red
+                    (255, 69, 0),   # Red-Orange
+                    (255, 140, 0),  # Dark Orange
+                    (255, 165, 0),  # Orange
+                    (255, 215, 0),  # Gold
+                    (255, 99, 71),  # Tomato Red
+                    (255, 50, 0),   # Bright Red
+                    (255, 180, 0)   # Light Orange
+                ],
+                "solution": {
+                    "base": (255, 100, 0),          # Brighter Orange-Red
+                    "sparkle": None
+                }
+            },
+            "purplenurple": {
+                "current_cell": (200, 0, 255),      # Brighter Purple
+                "trail": (10, 0, 15),               # Much Darker Purple
+                "purple_colors": [
+                    (10, 0, 15),     # Very Dark Purple
+                    (15, 0, 20),     # Dark Purple
+                    (20, 0, 25),     # Slightly Lighter Dark Purple
+                    (15, 0, 20),     # Medium Dark Purple
+                    (20, 0, 25),     # Another Dark Purple
+                    (25, 0, 30),     # Lighter Dark Purple
+                    (8, 0, 12),      # Darkest Purple
+                    (147, 112, 219), # Medium Purple
+                    (186, 85, 211),  # Medium Orchid
+                    (153, 50, 204),  # Dark Orchid
+                    (139, 0, 139),   # Dark Magenta
+                    (128, 0, 128),   # Purple
+                    (75, 0, 130),    # Indigo
+                    (200, 0, 255)    # Brighter Purple
+                ],
+                "solution": {
+                    "base": (200, 0, 255),          # Brighter Purple
+                    "sparkle": None
+                }
             }
         }
         self.set_theme(theme_name)
@@ -189,6 +245,8 @@ class AnimationTheme:
             self.flame_colors = theme.get("flame_colors", None)
             self.ocean_colors = theme.get("ocean_colors", None)
             self.matrix_colors = theme.get("matrix_colors", None)
+            self.lava_colors = theme.get("lava_colors", None)
+            self.purple_colors = theme.get("purple_colors", None)
             self.solution_colors = {}  # Reset solution colors when theme changes
             self.solution_sparkle = theme.get("solution", {}).get("sparkle", None)
             self.solution_base = theme.get("solution", {}).get("base", (0, 0, 255))
@@ -240,6 +298,30 @@ class AnimationTheme:
             
             if cell not in self.cell_colors:
                 self.cell_colors[cell] = self.random.choice(self.ocean_colors)
+            return self.cell_colors[cell]
+        elif self.current_theme == "lava":
+            current_time = pygame.time.get_ticks()
+            if current_time - self.flame_timer > self.FLAME_CHANGE_INTERVAL:
+                self.flame_timer = current_time
+                # Update colors for all cells
+                for c in self.cell_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color for more natural flickering
+                        self.cell_colors[c] = self.random.choice(self.lava_colors)
+            
+            if cell not in self.cell_colors:
+                self.cell_colors[cell] = self.random.choice(self.lava_colors)
+            return self.cell_colors[cell]
+        elif self.current_theme == "purplenurple":
+            current_time = pygame.time.get_ticks()
+            if current_time - self.flame_timer > self.FLAME_CHANGE_INTERVAL:
+                self.flame_timer = current_time
+                # Update colors for all cells
+                for c in self.cell_colors:
+                    if self.random.random() < 0.7:  # 70% chance to change color for more natural flickering
+                        self.cell_colors[c] = self.random.choice(self.purple_colors)
+            
+            if cell not in self.cell_colors:
+                self.cell_colors[cell] = self.random.choice(self.purple_colors)
             return self.cell_colors[cell]
         elif self.current_theme == "matrix":
             current_time = pygame.time.get_ticks()
@@ -385,7 +467,7 @@ class MazeComponent:
             y,
             button_width,
             button_height,
-            ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"],
+            ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow", "Lava", "Purplenurple"],
             button_style
         )
         
@@ -1057,22 +1139,39 @@ class MazeGame:
                     # Only process if this maze hasn't been solved yet
                     if component not in self.solved_mazes:
                         self.solved_mazes.append(component)
-        
-        # Then, update themes for all solved mazes in order
-        for i, component in enumerate(self.solved_mazes):
-            # Assign theme based on completion order
-            if i == 0:  # First to finish
-                solution_theme = AnimationTheme("gold")
-            elif i == 1:  # Second to finish
-                solution_theme = AnimationTheme("silver")
-            elif i == 2:  # Third to finish
-                solution_theme = AnimationTheme("bronze")
-            else:  # All others
-                solution_theme = AnimationTheme("metal")
-            
-            # Only set the solution color, keeping other colors the same
-            component.animation_theme.solution_base = solution_theme.solution_base
-            component.animation_theme.solution_sparkle = solution_theme.solution_sparkle
+                        # Immediately apply the correct theme based on position
+                        if len(self.solved_mazes) == 1:  # First to finish
+                            component.animation_theme.solution_base = (255, 215, 0)  # Gold
+                            component.animation_theme.solution_sparkle = [
+                                (255, 255, 0),    # Yellow
+                                (255, 215, 0),    # Gold
+                                (255, 255, 200),  # Light Gold
+                                (255, 200, 0)     # Dark Gold
+                            ]
+                        elif len(self.solved_mazes) == 2:  # Second to finish
+                            component.animation_theme.solution_base = (192, 192, 192)  # Silver
+                            component.animation_theme.solution_sparkle = [
+                                (255, 255, 255),  # White
+                                (192, 192, 192),  # Silver
+                                (220, 220, 220),  # Light Silver
+                                (160, 160, 160)   # Dark Silver
+                            ]
+                        elif len(self.solved_mazes) == 3:  # Third to finish
+                            component.animation_theme.solution_base = (205, 127, 50)  # Bronze
+                            component.animation_theme.solution_sparkle = [
+                                (218, 165, 32),   # Goldenrod
+                                (205, 127, 50),   # Bronze
+                                (222, 184, 135),  # Burlywood
+                                (184, 115, 51)    # Dark Bronze
+                            ]
+                        else:  # All others
+                            component.animation_theme.solution_base = (100, 100, 100)  # Metal
+                            component.animation_theme.solution_sparkle = [
+                                (150, 150, 150),  # Medium Gray
+                                (100, 100, 100),  # Darker Gray
+                                (120, 120, 120),  # Slightly Lighter Gray
+                                (80, 80, 80)      # Very Dark Gray
+                            ]
     
     def run(self):
         """Main game loop."""
