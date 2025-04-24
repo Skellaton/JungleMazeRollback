@@ -696,6 +696,9 @@ class MazeGame:
         pygame.display.set_caption("Maze Generator and Solver")
         self.clock = pygame.time.Clock()
         
+        # Add pause state
+        self.is_paused = False
+        
         # Load and scale logos
         self.logos = {
             "jungle": pygame.transform.scale(pygame.image.load("assets/logo_jungle.png"), (200, 200)),
@@ -720,13 +723,13 @@ class MazeGame:
             "Mouse": MouseMazeSolver
         }
         
-        # Initialize maze generators
+        # Initialize maze generators with renamed Open Space to Spacious
         self.generators = {
             "DFS": DFSMazeGenerator,
             "Prim's": PrimsMazeGenerator,
             "Binary Tree": BinaryTreeGenerator,
             "Recursive Division": RecursiveDivisionGenerator,
-            "Open Space": OpenSpaceGenerator
+            "Spacious": OpenSpaceGenerator
         }
         
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
@@ -739,9 +742,6 @@ class MazeGame:
         self.shared_maze = None
         self.start_pos = None
         self.end_pos = None
-        
-        # Add pause state
-        self.is_paused = False
         
         # Create buttons and sliders
         button_width = 180
@@ -795,7 +795,7 @@ class MazeGame:
             self.button_style
         )
         
-        # Create maze generator dropdown
+        # Create maze generator dropdown with theme settings
         self.generator_dropdown = Dropdown(
             buttons_x,
             slider_y,
@@ -804,6 +804,7 @@ class MazeGame:
             list(self.generators.keys()),
             self.button_style
         )
+        self.generator_dropdown.style = self.button_style  # Ensure theme is applied
         
         # Create buttons
         self.generate_button = Button(
@@ -979,6 +980,7 @@ class MazeGame:
         for button in self.buttons:
             button.style = self.button_style
         self.app_theme_dropdown.style = self.button_style
+        self.generator_dropdown.style = self.button_style  # Update generator dropdown theme
         
         # Update sliders
         self.width_slider.update_style(self.button_style)
