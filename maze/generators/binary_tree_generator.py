@@ -15,11 +15,11 @@ class BinaryTreeGenerator(BaseMazeGenerator):
                 choices = []
                 
                 # Check if we can go north
-                if y > 1 and self.maze[y-2, x] == 0:
+                if y > 1:
                     choices.append('N')
                 
                 # Check if we can go east
-                if x < self.width * 2 - 1 and self.maze[y, x+2] == 0:
+                if x < self.width * 2 - 1:
                     choices.append('E')
                 
                 if choices:
