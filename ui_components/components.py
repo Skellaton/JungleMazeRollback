@@ -186,7 +186,7 @@ class MazeNodes:
         
         # Parent component reference for linked movement
         self.parent_component = parent_component
-        self.is_locked = False
+        self.is_locked = True  # Set to True by default
         
         # Store initial relative position to parent
         self.relative_x = x - parent_component.x

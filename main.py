@@ -715,18 +715,26 @@ class MazeGame:
         self.solvers = {
             "A*": AStarMazeSolver,
             "BFS": BFSMazeSolver,
-            "DFS": DFSMazeSolver,  # Added DFS
-            "Dijkstra": DijkstraMazeSolver,  # Added Dijkstra
+            "DFS": DFSMazeSolver,
+            "Dijkstra": DijkstraMazeSolver,
             "Mouse": MouseMazeSolver
         }
+        
+        # Initialize maze generators
+        self.generators = {
+            "DFS": DFSMazeGenerator
+        }
+        
         self.animation_themes = ["Default", "Neon", "Fire", "Ocean", "Sunset", "Matrix", "Candy", "Rainbow"]
         
         # Initialize maze components list
         self.maze_components = []
         
-        # Initialize shared maze
-        self.shared_maze = None
+        # Initialize maze generator and shared maze
         self.maze_generator = DFSMazeGenerator(MAZE_WIDTH, MAZE_HEIGHT)
+        self.shared_maze = None
+        self.start_pos = None
+        self.end_pos = None
         
         # Create buttons and sliders
         button_width = 180
@@ -782,9 +790,19 @@ class MazeGame:
             self.button_style
         )
         
+        # Create maze generator dropdown
+        self.generator_dropdown = Dropdown(
+            buttons_x,
+            button_y,
+            button_width,
+            button_height,
+            list(self.generators.keys()),
+            self.button_style
+        )
+        
         # Create buttons
         self.generate_button = Button(
-            buttons_x,
+            buttons_x + button_width + button_spacing,
             button_y,
             button_width,
             button_height,
@@ -794,7 +812,7 @@ class MazeGame:
         )
         
         self.solve_button = Button(
-            buttons_x + button_width + button_spacing,
+            buttons_x + (button_width + button_spacing) * 2,
             button_y,
             button_width,
             button_height,
@@ -804,7 +822,7 @@ class MazeGame:
         )
         
         self.reset_button = Button(
-            buttons_x + (button_width + button_spacing) * 2,
+            buttons_x + (button_width + button_spacing) * 3,
             button_y,
             button_width,
             button_height,
@@ -814,7 +832,7 @@ class MazeGame:
         )
         
         self.new_maze_button = Button(
-            buttons_x + (button_width + button_spacing) * 3,
+            buttons_x + (button_width + button_spacing) * 4,
             button_y,
             button_width,
             button_height,
@@ -824,7 +842,7 @@ class MazeGame:
         )
         
         self.randomize_all_button = Button(
-            buttons_x + (button_width + button_spacing) * 4,
+            buttons_x + (button_width + button_spacing) * 5,
             button_y,
             button_width,
             button_height,
@@ -834,7 +852,7 @@ class MazeGame:
         )
         
         self.app_theme_dropdown = Dropdown(
-            buttons_x + (button_width + button_spacing) * 5,
+            buttons_x + (button_width + button_spacing) * 6,
             button_y,
             button_width,
             button_height,
@@ -854,6 +872,11 @@ class MazeGame:
     
     def generate_maze(self):
         """Generate a new maze that will be shared across all components."""
+        # Get the selected generator class
+        generator_name = self.generator_dropdown.selected
+        generator_class = self.generators.get(generator_name, DFSMazeGenerator)
+        self.maze_generator = generator_class(MAZE_WIDTH, MAZE_HEIGHT)
+        
         # Generate the maze
         self.shared_maze = self.maze_generator.generate()
         
@@ -1035,6 +1058,11 @@ class MazeGame:
                 if selected_theme:
                     self.change_app_theme(selected_theme)
                 
+                # Handle maze generator dropdown
+                selected_generator = self.generator_dropdown.handle_event(event)
+                if selected_generator:
+                    self.generate_maze()  # Regenerate maze with new generator
+                
                 # Handle dimension sliders
                 new_width = self.width_slider.handle_event(event)
                 new_height = self.height_slider.handle_event(event)
@@ -1104,7 +1132,9 @@ class MazeGame:
         self.height_slider.draw(self.screen)
         self.cell_size_slider.draw(self.screen)
         
-        # Draw app theme dropdown and its options
+        # Draw dropdowns and their options
+        self.generator_dropdown.draw(self.screen)
+        self.generator_dropdown.draw_options(self.screen)
         self.app_theme_dropdown.draw(self.screen)
         self.app_theme_dropdown.draw_options(self.screen)
         
